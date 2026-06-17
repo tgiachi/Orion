@@ -1,4 +1,4 @@
-﻿using ConsoleAppFramework;
+using ConsoleAppFramework;
 using DryIoc;
 using OrionIrcd.Core.Container;
 using OrionIrcd.Core.Data.Config;

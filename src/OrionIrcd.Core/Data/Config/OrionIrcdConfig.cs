@@ -8,7 +8,7 @@ public class OrionIrcdConfig
 
     public string NetworkName { get; set; } = "irc.orionircd.net";
 
-    public LoggingSection  Logging { get; set; } = new();
+    public LoggingSection Logging { get; set; } = new();
 
-    public NetworkConfigSection Network { get; set; }  = new();
+    public NetworkConfigSection Network { get; set; } = new();
 }
