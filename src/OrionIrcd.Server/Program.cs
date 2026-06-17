@@ -1,14 +1,22 @@
 ﻿using ConsoleAppFramework;
 using DryIoc;
+using OrionIrcd.Core.Container;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Extensions.Directories;
 using OrionIrcd.Core.Extensions.Logger;
+using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Core.Types;
+using OrionIrcd.Core.Utils;
 using OrionIrcd.Core.Yaml;
+using OrionIrcd.Server.Interfaces.Services;
+using OrionIrcd.Server.Services;
+using OrionIrcd.Server.Services.Events;
 using Serilog;
 
 var container = new Container();
+
+container.RegisterService<IEventBus, EventBus>();
 
 await ConsoleApp.RunAsync(
     args,
@@ -41,7 +49,12 @@ await ConsoleApp.RunAsync(
 
         Log.Logger = loggingConfiguration.CreateLogger();
 
-        await Task.Delay(Timeout.Infinite, cancellationToken);
+        container.Register<IOrionIrcdOrchestrator, OrionIrcdOrchestrator>();
+
+        Log.Information("Starting up...");
+        Log.Information("OrionIRCd v{Version} Platform {Platform}", VersionUtils.GetVersion(), PlatformUtils.GetCurrentPlatform());
+
+        await container.Resolve<IOrionIrcdOrchestrator>().RunAsync(cancellationToken);
     }
 );
 

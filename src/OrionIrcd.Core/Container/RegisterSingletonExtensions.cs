@@ -1,5 +1,6 @@
 using DryIoc;
 using OrionIrcd.Core.Data.Internal;
+using OrionIrcd.Core.Interfaces.Services;
 
 namespace OrionIrcd.Core.Container;
 
@@ -18,6 +19,7 @@ public static class RegisterSingletonExtensions
         /// <param name="autoStart">Whether to auto-start the service.</param>
         /// <returns>The container for method chaining.</returns>
         public IContainer RegisterService<TService, TImplementation>(int priority = 0)
+            where TService : IOrionIrcdService
             where TImplementation : TService
         {
             container.Register<TService, TImplementation>(
@@ -39,6 +41,7 @@ public static class RegisterSingletonExtensions
         /// <typeparam name="TService">The service type.</typeparam>
         /// <returns>The container for method chaining.</returns>
         public IContainer RegisterService<TService>()
+            where TService : IOrionIrcdService
             => container.RegisterService<TService, TService>();
     }
 }
