@@ -1,0 +1,86 @@
+using OrionIrcd.Core.Data.Config.Sections;
+using OrionIrcd.Core.Types;
+using OrionIrcd.Server.Services.Network;
+
+namespace OrionIrcd.Tests.Server.Services.Network;
+
+public class NetworkServerServiceTests
+{
+    [Fact]
+    public async Task StartAsync_ConfiguredTcpEntry_StartsListener()
+    {
+        var service = new NetworkServerService(CreateNetworkConfig("0"));
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.True(service.IsRunning);
+            Assert.Equal(1, service.ListenerCount);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_DuplicatePorts_StartsSingleListener()
+    {
+        var service = new NetworkServerService(CreateNetworkConfig("0,0"));
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.Equal(1, service.ListenerCount);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StopAsync_AfterStart_StopsAndClearsListeners()
+    {
+        var service = new NetworkServerService(CreateNetworkConfig("0"));
+
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.False(service.IsRunning);
+        Assert.Equal(0, service.ListenerCount);
+    }
+
+    [Fact]
+    public async Task StartAsync_UnsupportedProtocol_ThrowsAndResetsState()
+    {
+        var config = CreateNetworkConfig("0");
+        config.Entries[0].Protocol = ServerProtocolType.SSL;
+        var service = new NetworkServerService(config);
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.StartAsync(CancellationToken.None));
+
+        Assert.False(service.IsRunning);
+        Assert.Equal(0, service.ListenerCount);
+    }
+
+    private static NetworkConfigSection CreateNetworkConfig(string ports)
+    {
+        var config = new NetworkConfigSection();
+
+        config.Entries.Add(
+            new()
+            {
+                IpAddress = "127.0.0.1",
+                Mode = ServerModeType.Server,
+                Ports = ports,
+                Protocol = ServerProtocolType.Plain,
+                Type = ServerType.TCP
+            }
+        );
+
+        return config;
+    }
+}

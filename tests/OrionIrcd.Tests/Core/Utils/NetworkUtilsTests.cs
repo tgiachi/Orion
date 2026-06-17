@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using OrionIrcd.Core.Utils;
 
 namespace OrionIrcd.Tests.Core.Utils;
@@ -27,5 +28,18 @@ public class NetworkUtilsTests
         var ipAddress = NetworkUtils.ParseIpAddress("10.0.0.1");
 
         Assert.Equal(IPAddress.Parse("10.0.0.1"), ipAddress);
+    }
+
+    [Fact]
+    public void GetListeningAddresses_IpV4Endpoint_ReturnsMatchingEndpointFamilyAndPort()
+    {
+        var addresses = NetworkUtils.GetListeningAddresses(new IPEndPoint(IPAddress.Any, 6667)).ToArray();
+
+        Assert.NotEmpty(addresses);
+        Assert.All(addresses, address =>
+        {
+            Assert.Equal(AddressFamily.InterNetwork, address.AddressFamily);
+            Assert.Equal(6667, address.Port);
+        });
     }
 }
