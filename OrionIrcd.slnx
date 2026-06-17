@@ -1,0 +1,5 @@
+<Solution>
+    <Project Path="src/OrionIrcd.Core/OrionIrcd.Core.csproj" />
+    <Project Path="src/OrionIrcd.Server/OrionIrcd.Server.csproj" />
+    <Project Path="tests/OrionIrcd.Tests/OrionIrcd.Tests.csproj" />
+</Solution>
