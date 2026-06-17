@@ -8,6 +8,7 @@ using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Network.Server;
 using OrionIrcd.Server.Data.Events;
@@ -24,6 +25,7 @@ public sealed class NetworkServerService : IOrionIrcdService
     private readonly IResultProcessor<string> _resultProcessor;
     private readonly Lock _sync = new();
     private readonly List<OrionTcpServer> _tcpServers = [];
+    private readonly List<OrionWebSocketServer> _webSocketServers = [];
 
     private int _started;
 
@@ -48,7 +50,7 @@ public sealed class NetworkServerService : IOrionIrcdService
         {
             lock (_sync)
             {
-                return _tcpServers.Count;
+                return _tcpServers.Count + _webSocketServers.Count;
             }
         }
     }
@@ -59,7 +61,9 @@ public sealed class NetworkServerService : IOrionIrcdService
         {
             lock (_sync)
             {
-                return _tcpServers.Select(server => server.Port).ToArray();
+                return _tcpServers.Select(server => server.Port)
+                                  .Concat(_webSocketServers.Select(server => server.Port))
+                                  .ToArray();
             }
         }
     }
@@ -71,34 +75,69 @@ public sealed class NetworkServerService : IOrionIrcdService
             return;
         }
 
-        var startedServers = new List<OrionTcpServer>();
+        var startedTcpServers = new List<OrionTcpServer>();
+        var startedWebSocketServers = new List<OrionWebSocketServer>();
 
         try
         {
             foreach (var entry in _networkConfigSection.Entries)
             {
-                foreach (var server in CreateTcpServers(entry))
+                switch (entry.Type)
                 {
-                    WireServerEvents(server);
-                    await server.StartAsync(cancellationToken).ConfigureAwait(false);
-                    startedServers.Add(server);
+                    case ServerType.TCP:
+                        foreach (var server in CreateTcpServers(entry))
+                        {
+                            WireTcpServerEvents(server);
+                            await server.StartAsync(cancellationToken).ConfigureAwait(false);
+                            startedTcpServers.Add(server);
 
-                    _logger.Information(
-                        "Network listener started on port {Port}",
-                        server.Port
-                    );
+                            _logger.Information(
+                                "Network listener started on port {Port}",
+                                server.Port
+                            );
+                        }
+
+                        break;
+
+                    case ServerType.WebSocket:
+                        foreach (var server in CreateWebSocketServers(entry))
+                        {
+                            WireWebSocketServerEvents(server);
+                            await server.StartAsync(cancellationToken).ConfigureAwait(false);
+                            startedWebSocketServers.Add(server);
+
+                            _logger.Information(
+                                "WebSocket network listener started on port {Port}",
+                                server.Port
+                            );
+                        }
+
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Network server type '{entry.Type}' is not supported yet.");
                 }
             }
 
             lock (_sync)
             {
-                _tcpServers.AddRange(startedServers);
+                _tcpServers.AddRange(startedTcpServers);
+                _webSocketServers.AddRange(startedWebSocketServers);
             }
         }
         catch
         {
-            await StopStartedServersAsync(startedServers, CancellationToken.None).ConfigureAwait(false);
-            Interlocked.Exchange(ref _started, 0);
+            try
+            {
+                await Task.WhenAll(
+                    StopStartedTcpServersAsync(startedTcpServers, CancellationToken.None),
+                    StopStartedWebSocketServersAsync(startedWebSocketServers, CancellationToken.None)
+                ).ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _started, 0);
+            }
 
             throw;
         }
@@ -112,36 +151,34 @@ public sealed class NetworkServerService : IOrionIrcdService
         }
 
         OrionTcpServer[] servers;
+        OrionWebSocketServer[] webSocketServers;
 
         lock (_sync)
         {
             servers = [.. _tcpServers];
+            webSocketServers = [.. _webSocketServers];
             _tcpServers.Clear();
+            _webSocketServers.Clear();
         }
 
-        await StopStartedServersAsync(servers, cancellationToken).ConfigureAwait(false);
+        await Task.WhenAll(
+            StopStartedTcpServersAsync(servers, cancellationToken),
+            StopStartedWebSocketServersAsync(webSocketServers, cancellationToken)
+        ).ConfigureAwait(false);
     }
 
     private IEnumerable<OrionTcpServer> CreateTcpServers(NetworkSectionEntry entry)
     {
-        if (entry.Mode != ServerModeType.Server)
-        {
-            throw new NotSupportedException($"Network mode '{entry.Mode}' is not supported yet.");
-        }
+        EnsureSupportedModeAndProtocol(entry);
 
         if (entry.Type != ServerType.TCP)
         {
             throw new NotSupportedException($"Network server type '{entry.Type}' is not supported yet.");
         }
 
-        if (entry.Protocol is not ServerProtocolType.Plain and not ServerProtocolType.SSL)
-        {
-            throw new NotSupportedException($"Network protocol '{entry.Protocol}' is not supported yet.");
-        }
-
         var ipAddress = NetworkUtils.ParseIpAddress(entry.IpAddress);
         var ports = NetworkUtils.ParsePorts(entry.Ports).Distinct();
-        var tlsOptions = CreateTlsOptions(entry);
+        var tlsOptions = CreateTcpTlsOptions(entry);
 
         foreach (var port in ports)
         {
@@ -153,7 +190,66 @@ public sealed class NetworkServerService : IOrionIrcdService
         }
     }
 
-    private OrionTcpServerTlsOptions? CreateTlsOptions(NetworkSectionEntry entry)
+    private IEnumerable<OrionWebSocketServer> CreateWebSocketServers(NetworkSectionEntry entry)
+    {
+        EnsureSupportedModeAndProtocol(entry);
+
+        if (entry.Type != ServerType.WebSocket)
+        {
+            throw new NotSupportedException($"Network server type '{entry.Type}' is not supported yet.");
+        }
+
+        var ipAddress = NetworkUtils.ParseIpAddress(entry.IpAddress);
+        var ports = NetworkUtils.ParsePorts(entry.Ports).Distinct();
+        var tlsOptions = CreateWebSocketTlsOptions(entry);
+
+        foreach (var port in ports)
+        {
+            yield return new OrionWebSocketServer(
+                new IPEndPoint(ipAddress, port),
+                tlsOptions
+            );
+        }
+    }
+
+    private static void EnsureSupportedModeAndProtocol(NetworkSectionEntry entry)
+    {
+        if (entry.Mode != ServerModeType.Server)
+        {
+            throw new NotSupportedException($"Network mode '{entry.Mode}' is not supported yet.");
+        }
+
+        if (entry.Protocol is not ServerProtocolType.Plain and not ServerProtocolType.SSL)
+        {
+            throw new NotSupportedException($"Network protocol '{entry.Protocol}' is not supported yet.");
+        }
+    }
+
+    private OrionTcpServerTlsOptions? CreateTcpTlsOptions(NetworkSectionEntry entry)
+    {
+        var certificate = LoadCertificate(entry);
+
+        if (certificate is null)
+        {
+            return null;
+        }
+
+        return new OrionTcpServerTlsOptions(certificate);
+    }
+
+    private OrionWebSocketServerTlsOptions? CreateWebSocketTlsOptions(NetworkSectionEntry entry)
+    {
+        var certificate = LoadCertificate(entry);
+
+        if (certificate is null)
+        {
+            return null;
+        }
+
+        return new OrionWebSocketServerTlsOptions(certificate);
+    }
+
+    private X509Certificate2? LoadCertificate(NetworkSectionEntry entry)
     {
         if (entry.Protocol == ServerProtocolType.Plain)
         {
@@ -162,13 +258,11 @@ public sealed class NetworkServerService : IOrionIrcdService
 
         var certificatePath = ResolveCertificatePath(_networkConfigSection.SSLCertFile);
         var password = _networkConfigSection.SSLCertPassword ?? string.Empty;
-        var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+        return X509CertificateLoader.LoadPkcs12FromFile(
             certificatePath,
             password,
             X509KeyStorageFlags.EphemeralKeySet
         );
-
-        return new OrionTcpServerTlsOptions(certificate);
     }
 
     private string ResolveCertificatePath(string certificateFile)
@@ -193,7 +287,7 @@ public sealed class NetworkServerService : IOrionIrcdService
         return Path.GetFullPath(resolvedCertificateFile);
     }
 
-    private static async Task StopServerAsync(OrionTcpServer server, CancellationToken cancellationToken)
+    private static async Task StopTcpServerAsync(OrionTcpServer server, CancellationToken cancellationToken)
     {
         try
         {
@@ -205,32 +299,64 @@ public sealed class NetworkServerService : IOrionIrcdService
         }
     }
 
-    private static Task StopStartedServersAsync(IEnumerable<OrionTcpServer> servers, CancellationToken cancellationToken)
-        => Task.WhenAll(servers.Select(server => StopServerAsync(server, cancellationToken)));
-
-    private void WireServerEvents(OrionTcpServer server)
+    private static async Task StopWebSocketServerAsync(
+        OrionWebSocketServer server,
+        CancellationToken cancellationToken
+    )
     {
-        server.OnClientConnect += OnClientConnect;
-        server.OnClientDisconnect += OnClientDisconnect;
-        server.OnDataReceived += OnDataReceived;
-        server.OnException += OnException;
+        try
+        {
+            await server.StopAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await server.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
-    private void OnClientConnect(object? sender, OrionTcpClientEventArgs args)
+    private static Task StopStartedTcpServersAsync(
+        IEnumerable<OrionTcpServer> servers,
+        CancellationToken cancellationToken
+    )
+        => Task.WhenAll(servers.Select(server => StopTcpServerAsync(server, cancellationToken)));
+
+    private static Task StopStartedWebSocketServersAsync(
+        IEnumerable<OrionWebSocketServer> servers,
+        CancellationToken cancellationToken
+    )
+        => Task.WhenAll(servers.Select(server => StopWebSocketServerAsync(server, cancellationToken)));
+
+    private void WireTcpServerEvents(OrionTcpServer server)
+    {
+        server.OnClientConnect += OnTcpClientConnect;
+        server.OnClientDisconnect += OnTcpClientDisconnect;
+        server.OnDataReceived += OnTcpDataReceived;
+        server.OnException += OnTcpException;
+    }
+
+    private void WireWebSocketServerEvents(OrionWebSocketServer server)
+    {
+        server.OnClientConnect += OnWebSocketClientConnect;
+        server.OnClientDisconnect += OnWebSocketClientDisconnect;
+        server.OnDataReceived += OnWebSocketDataReceived;
+        server.OnException += OnWebSocketException;
+    }
+
+    private void OnTcpClientConnect(object? sender, OrionTcpClientEventArgs args)
         => _logger.Information(
             "Client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
 
-    private void OnClientDisconnect(object? sender, OrionTcpClientEventArgs args)
+    private void OnTcpClientDisconnect(object? sender, OrionTcpClientEventArgs args)
         => _logger.Information(
             "Client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
 
-    private void OnDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
+    private void OnTcpDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
     {
         _logger.Verbose(
             "Client data received. SessionId={SessionId}, Bytes={Bytes}",
@@ -238,19 +364,58 @@ public sealed class NetworkServerService : IOrionIrcdService
             args.Data.Length
         );
 
-        _ = Task.Run(() => ProcessReceivedDataAsync(args, CancellationToken.None));
+        QueueReceivedData(args.Client, args.Data);
     }
 
+    private void OnTcpException(object? sender, OrionTcpExceptionEventArgs args)
+        => _logger.Error(args.Exception, "Network listener failed");
+
+    private void OnWebSocketClientConnect(object? sender, OrionWebSocketClientEventArgs args)
+        => _logger.Information(
+            "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+    private void OnWebSocketClientDisconnect(object? sender, OrionWebSocketClientEventArgs args)
+        => _logger.Information(
+            "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+    private void OnWebSocketDataReceived(object? sender, OrionWebSocketDataReceivedEventArgs args)
+    {
+        _logger.Verbose(
+            "WebSocket client data received. SessionId={SessionId}, Bytes={Bytes}",
+            args.Client.SessionId,
+            args.Data.Length
+        );
+
+        QueueReceivedData(args.Client, args.Data);
+    }
+
+    private void OnWebSocketException(object? sender, OrionWebSocketExceptionEventArgs args)
+        => _logger.Error(
+            args.Exception,
+            "WebSocket network listener failed. SessionId={SessionId}",
+            args.Client?.SessionId
+        );
+
+    private void QueueReceivedData(INetworkConnection connection, ReadOnlyMemory<byte> data)
+        => _ = Task.Run(() => ProcessReceivedDataAsync(connection, data, CancellationToken.None));
+
     private async Task ProcessReceivedDataAsync(
-        OrionTcpDataReceivedEventArgs args,
+        INetworkConnection connection,
+        ReadOnlyMemory<byte> data,
         CancellationToken cancellationToken
     )
     {
         try
         {
             var result = await _resultProcessor.ProcessAsync(
-                args.Client,
-                args.Data,
+                connection,
+                data,
                 cancellationToken
             ).ConfigureAwait(false);
 
@@ -259,18 +424,15 @@ public sealed class NetworkServerService : IOrionIrcdService
                 return;
             }
 
-            _eventBus?.Publish(new NetworkResultReceivedEvent<string>(args.Client, result));
+            _eventBus?.Publish(new NetworkResultReceivedEvent<string>(connection, result));
         }
         catch (Exception exception)
         {
             _logger.Error(
                 exception,
                 "Network result processor failed. SessionId={SessionId}",
-                args.Client.SessionId
+                connection.SessionId
             );
         }
     }
-
-    private void OnException(object? sender, OrionTcpExceptionEventArgs args)
-        => _logger.Error(args.Exception, "Network listener failed");
 }
