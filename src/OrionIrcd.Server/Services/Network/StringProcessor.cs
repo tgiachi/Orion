@@ -1,5 +1,5 @@
 using System.Text;
-using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 
 namespace OrionIrcd.Server.Services.Network;
@@ -7,7 +7,7 @@ namespace OrionIrcd.Server.Services.Network;
 public sealed class StringProcessor : IResultProcessor<string>
 {
     public ValueTask<string> ProcessAsync(
-        OrionTcpClient client,
+        INetworkConnection connection,
         ReadOnlyMemory<byte> data,
         CancellationToken cancellationToken
     )

@@ -137,7 +137,7 @@ public class NetworkServerServiceTests
             );
 
             Assert.Equal("NICK squid", publishedEvent.Result);
-            Assert.NotNull(publishedEvent.Client);
+            Assert.NotNull(publishedEvent.Connection);
         }
         finally
         {

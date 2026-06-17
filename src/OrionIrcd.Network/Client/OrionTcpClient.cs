@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using OrionIrcd.Network.Buffers;
 using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;
 using OrionIrcd.Network.Pipeline;
@@ -14,7 +15,7 @@ namespace OrionIrcd.Network.Client;
 ///     Represents a connected TCP client with async send/receive loops,
 ///     middleware processing, lifecycle events, and recent byte history.
 /// </summary>
-public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
+public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisposable
 {
     private const int DefaultReceiveBufferSize = 8192;
     private const int DefaultHistoryBufferCapacity = 65536;

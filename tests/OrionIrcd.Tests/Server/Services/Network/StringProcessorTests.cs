@@ -1,7 +1,5 @@
-using System.Net;
-using System.Net.Sockets;
-using OrionIrcd.Network.Client;
 using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Tests.Support.Network;
 
 namespace OrionIrcd.Tests.Server.Services.Network;
 
@@ -10,12 +8,11 @@ public class StringProcessorTests
     [Fact]
     public async Task ProcessAsync_CrlfTerminatedUtf8Frame_ReturnsCommandWithoutTerminator()
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await using var client = new OrionTcpClient(socket, Stream.Null);
+        var connection = new TestNetworkConnection();
         var processor = new StringProcessor();
 
         var result = await processor.ProcessAsync(
-            client,
+            connection,
             "NICK squid\r\n"u8.ToArray(),
             CancellationToken.None
         );
@@ -26,12 +23,11 @@ public class StringProcessorTests
     [Fact]
     public async Task ProcessAsync_LfTerminatedUtf8Frame_ReturnsCommandWithoutTerminator()
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await using var client = new OrionTcpClient(socket, Stream.Null);
+        var connection = new TestNetworkConnection();
         var processor = new StringProcessor();
 
         var result = await processor.ProcessAsync(
-            client,
+            connection,
             "PING :server\n"u8.ToArray(),
             CancellationToken.None
         );
@@ -42,12 +38,11 @@ public class StringProcessorTests
     [Fact]
     public async Task ProcessAsync_CommandWithTrailingSpaces_PreservesCommandContent()
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await using var client = new OrionTcpClient(socket, Stream.Null);
+        var connection = new TestNetworkConnection();
         var processor = new StringProcessor();
 
         var result = await processor.ProcessAsync(
-            client,
+            connection,
             "PRIVMSG #chan :hello  \r\n"u8.ToArray(),
             CancellationToken.None
         );
@@ -58,12 +53,11 @@ public class StringProcessorTests
     [Fact]
     public async Task ProcessAsync_EmptyFrame_ReturnsEmptyString()
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await using var client = new OrionTcpClient(socket, Stream.Null);
+        var connection = new TestNetworkConnection();
         var processor = new StringProcessor();
 
         var result = await processor.ProcessAsync(
-            client,
+            connection,
             ReadOnlyMemory<byte>.Empty,
             CancellationToken.None
         );

@@ -1,4 +1,4 @@
-using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Interfaces.Client;
 
 namespace OrionIrcd.Network.Interfaces.Processing;
 
@@ -9,14 +9,14 @@ namespace OrionIrcd.Network.Interfaces.Processing;
 public interface IResultProcessor<T>
 {
     /// <summary>
-    /// Processes one complete framed payload for a client connection.
+    /// Processes one complete framed payload for a network connection.
     /// </summary>
-    /// <param name="client">The client that produced the payload.</param>
+    /// <param name="connection">The connection that produced the payload.</param>
     /// <param name="data">The framed payload bytes.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The processed result.</returns>
     ValueTask<T> ProcessAsync(
-        OrionTcpClient client,
+        INetworkConnection connection,
         ReadOnlyMemory<byte> data,
         CancellationToken cancellationToken
     );

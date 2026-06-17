@@ -1,17 +1,17 @@
 using OrionIrcd.Core.Interfaces.Events;
-using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Interfaces.Client;
 
 namespace OrionIrcd.Server.Data.Events;
 
 public sealed class NetworkResultReceivedEvent<T> : IEvent
 {
-    public NetworkResultReceivedEvent(OrionTcpClient client, T result)
+    public NetworkResultReceivedEvent(INetworkConnection connection, T result)
     {
-        Client = client;
+        Connection = connection;
         Result = result;
     }
 
-    public OrionTcpClient Client { get; }
+    public INetworkConnection Connection { get; }
 
     public T Result { get; }
 }
