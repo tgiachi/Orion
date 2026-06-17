@@ -1,8 +1,12 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using OrionIrcd.Core.Data.Config.Sections;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Types;
+using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Io;
 using OrionIrcd.Tests.Support.Network;
 
@@ -108,6 +112,65 @@ public class NetworkServerServiceTests
 
         Assert.False(service.IsRunning);
         Assert.Equal(0, service.ListenerCount);
+    }
+
+    [Fact]
+    public async Task StartAsync_ReceivesIrcLine_PublishesProcessedStringResult()
+    {
+        var eventBus = new RecordingEventBus();
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
+
+            var publishedEvent = await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            Assert.Equal("NICK squid", publishedEvent.Result);
+            Assert.NotNull(publishedEvent.Client);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_ReceivesBlankLine_DoesNotPublishProcessedStringResult()
+    {
+        var eventBus = new RecordingEventBus();
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+            await client.GetStream().WriteAsync("\r\n"u8.ToArray());
+
+            await Task.Delay(200);
+
+            Assert.Empty(eventBus.Events);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
     }
 
     private static NetworkConfigSection CreateNetworkConfig(string ports)

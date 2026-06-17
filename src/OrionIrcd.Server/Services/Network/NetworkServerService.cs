@@ -3,11 +3,14 @@ using System.Security.Cryptography.X509Certificates;
 using OrionIrcd.Core.Data.Config.Sections;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Extensions.Directories;
+using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Network.Server;
+using OrionIrcd.Server.Data.Events;
 using Serilog;
 
 namespace OrionIrcd.Server.Services.Network;
@@ -16,16 +19,25 @@ public sealed class NetworkServerService : IOrionIrcdService
 {
     private readonly ILogger _logger = Log.ForContext<NetworkServerService>();
     private readonly DirectoriesConfig? _directoriesConfig;
+    private readonly IEventBus? _eventBus;
     private readonly NetworkConfigSection _networkConfigSection;
+    private readonly IResultProcessor<string> _resultProcessor;
     private readonly Lock _sync = new();
     private readonly List<OrionTcpServer> _tcpServers = [];
 
     private int _started;
 
-    public NetworkServerService(NetworkConfigSection networkConfigSection, DirectoriesConfig? directoriesConfig = null)
+    public NetworkServerService(
+        NetworkConfigSection networkConfigSection,
+        DirectoriesConfig? directoriesConfig = null,
+        IResultProcessor<string>? resultProcessor = null,
+        IEventBus? eventBus = null
+    )
     {
         _networkConfigSection = networkConfigSection;
         _directoriesConfig = directoriesConfig;
+        _resultProcessor = resultProcessor ?? new StringProcessor();
+        _eventBus = eventBus;
     }
 
     public bool IsRunning => Volatile.Read(ref _started) != 0;
@@ -37,6 +49,17 @@ public sealed class NetworkServerService : IOrionIrcdService
             lock (_sync)
             {
                 return _tcpServers.Count;
+            }
+        }
+    }
+
+    public IReadOnlyList<int> ListeningPorts
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _tcpServers.Select(server => server.Port).ToArray();
             }
         }
     }
@@ -208,11 +231,45 @@ public sealed class NetworkServerService : IOrionIrcdService
         );
 
     private void OnDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
-        => _logger.Verbose(
+    {
+        _logger.Verbose(
             "Client data received. SessionId={SessionId}, Bytes={Bytes}",
             args.Client.SessionId,
             args.Data.Length
         );
+
+        _ = Task.Run(() => ProcessReceivedDataAsync(args, CancellationToken.None));
+    }
+
+    private async Task ProcessReceivedDataAsync(
+        OrionTcpDataReceivedEventArgs args,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            var result = await _resultProcessor.ProcessAsync(
+                args.Client,
+                args.Data,
+                cancellationToken
+            ).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                return;
+            }
+
+            _eventBus?.Publish(new NetworkResultReceivedEvent<string>(args.Client, result));
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                exception,
+                "Network result processor failed. SessionId={SessionId}",
+                args.Client.SessionId
+            );
+        }
+    }
 
     private void OnException(object? sender, OrionTcpExceptionEventArgs args)
         => _logger.Error(args.Exception, "Network listener failed");

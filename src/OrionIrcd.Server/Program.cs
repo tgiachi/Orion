@@ -9,6 +9,7 @@ using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Core.Yaml;
+using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services;
 using OrionIrcd.Server.Services.Events;
@@ -18,6 +19,7 @@ using Serilog;
 var container = new Container();
 
 container.RegisterService<IEventBus, EventBus>();
+container.Register<IResultProcessor<string>, StringProcessor>(Reuse.Singleton);
 container.RegisterService<NetworkServerService, NetworkServerService>(priority: 100);
 
 await ConsoleApp.RunAsync(
