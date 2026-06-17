@@ -2,7 +2,7 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
-namespace OrionIrcd.Network.Server;
+namespace OrionIrcd.Network.Data.Options;
 
 public sealed class OrionTcpServerTlsOptions
 {
@@ -27,8 +27,8 @@ public sealed class OrionTcpServerTlsOptions
             ServerCertificate = ServerCertificate,
             ClientCertificateRequired = ClientCertificateRequired,
             CertificateRevocationCheckMode = CheckCertificateRevocation
-                ? X509RevocationMode.Online
-                : X509RevocationMode.NoCheck,
+                                                 ? X509RevocationMode.Online
+                                                 : X509RevocationMode.NoCheck,
             EnabledSslProtocols = EnabledSslProtocols
         };
 }

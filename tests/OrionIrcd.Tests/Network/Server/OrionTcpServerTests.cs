@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Server;
 using OrionIrcd.Tests.Support.Network;
 

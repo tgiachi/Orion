@@ -1,6 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 
-namespace OrionIrcd.Network.Server;
+namespace OrionIrcd.Network.Data.Options;
 
 public sealed class OrionWebSocketServerTlsOptions
 {

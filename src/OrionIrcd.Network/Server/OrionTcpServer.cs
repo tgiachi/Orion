@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Events;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;

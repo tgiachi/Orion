@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OrionIrcd.Network.Client;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Events;
 using Serilog;
 

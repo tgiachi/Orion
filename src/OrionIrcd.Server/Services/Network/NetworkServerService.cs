@@ -7,6 +7,7 @@ using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Events;
 using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
