@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 
 namespace OrionIrcd.Core.Utils;
 
@@ -43,6 +44,24 @@ public static class NetworkUtils
         ArgumentException.ThrowIfNullOrWhiteSpace(ipAddress);
 
         return ipAddress.Trim() == "*" ? IPAddress.Any : IPAddress.Parse(ipAddress);
+    }
+
+    /// <summary>
+    /// Enumerates local unicast endpoints matching the supplied endpoint address family.
+    /// </summary>
+    /// <param name="endPoint">The template endpoint supplying address family and port.</param>
+    /// <returns>The matching local endpoints.</returns>
+    public static IEnumerable<IPEndPoint> GetListeningAddresses(IPEndPoint endPoint)
+    {
+        ArgumentNullException.ThrowIfNull(endPoint);
+
+        return NetworkInterface.GetAllNetworkInterfaces()
+            .SelectMany(adapter =>
+                adapter.GetIPProperties()
+                    .UnicastAddresses
+                    .Where(unicast => endPoint.AddressFamily == unicast.Address.AddressFamily)
+                    .Select(unicast => new IPEndPoint(unicast.Address, endPoint.Port))
+            );
     }
 
     private static void AddPortRange(List<int> ports, string range)
