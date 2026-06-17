@@ -12,11 +12,13 @@ using OrionIrcd.Core.Yaml;
 using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services;
 using OrionIrcd.Server.Services.Events;
+using OrionIrcd.Server.Services.Network;
 using Serilog;
 
 var container = new Container();
 
 container.RegisterService<IEventBus, EventBus>();
+container.RegisterService<NetworkServerService, NetworkServerService>(priority: 100);
 
 await ConsoleApp.RunAsync(
     args,
@@ -63,27 +65,31 @@ static OrionIrcdConfig LoadConfig(Container container, string configFileName = "
     var directoriesConfig = container.Resolve<DirectoriesConfig>();
     var configFullFileName = Path.Combine(directoriesConfig.Root, configFileName);
 
+    OrionIrcdConfig config;
+
     if (File.Exists(configFullFileName))
     {
-        return YamlUtils.DeserializeFromFile<OrionIrcdConfig>(configFullFileName);
+        config = YamlUtils.DeserializeFromFile<OrionIrcdConfig>(configFullFileName);
     }
+    else
+    {
+        Console.WriteLine("Initializing default config " + configFileName);
 
-    Console.WriteLine("Initializing default config " + configFileName);
+        config = new OrionIrcdConfig();
 
-    var config = new OrionIrcdConfig();
+        config.Network.Entries.Add(
+            new()
+            {
+                IpAddress = "*",
+                Mode = ServerModeType.Server,
+                Ports = "6666-6668",
+                Protocol = ServerProtocolType.Plain,
+                Type = ServerType.TCP
+            }
+        );
 
-    config.Network.Entries.Add(
-        new()
-        {
-            IpAddress = "*",
-            Mode = ServerModeType.Server,
-            Ports = "6666-6668",
-            Protocol = ServerProtocolType.Plain,
-            Type = ServerType.TCP
-        }
-    );
-
-    YamlUtils.SerializeToFile(config, configFullFileName);
+        YamlUtils.SerializeToFile(config, configFullFileName);
+    }
 
     container.RegisterInstance(config);
     container.RegisterInstance(config.Network);

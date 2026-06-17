@@ -9,6 +9,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\OrionIrcd.Core\OrionIrcd.Core.csproj" />
+      <ProjectReference Include="..\OrionIrcd.Network\OrionIrcd.Network.csproj" />
     </ItemGroup>
 
     <ItemGroup>
