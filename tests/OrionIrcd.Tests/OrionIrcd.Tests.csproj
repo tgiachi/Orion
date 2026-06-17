@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OrionIrcd.Core\OrionIrcd.Core.csproj" />
+    <ProjectReference Include="..\..\src\OrionIrcd.Network\OrionIrcd.Network.csproj" />
     <ProjectReference Include="..\..\src\OrionIrcd.Server\OrionIrcd.Server.csproj" />
   </ItemGroup>
 
