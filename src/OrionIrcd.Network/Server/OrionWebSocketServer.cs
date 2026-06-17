@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -19,6 +20,8 @@ namespace OrionIrcd.Network.Server;
 /// </summary>
 public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
 {
+    private static readonly TimeSpan AcceptedSocketCloseTimeout = TimeSpan.FromSeconds(2);
+
     private readonly ConcurrentDictionary<long, OrionWebSocketClient> _clients = new();
     private readonly IPEndPoint _endPoint;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
@@ -27,6 +30,7 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
     private WebApplication? _application;
     private int _port;
     private int _started;
+    private CancellationTokenSource? _shutdownCancellationTokenSource;
 
     /// <summary>
     ///     Current listening port. Returns 0 when the server is stopped.
@@ -84,11 +88,13 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
             }
 
             var application = CreateApplication();
+            var shutdownCancellationTokenSource = new CancellationTokenSource();
 
             try
             {
                 await application.StartAsync(cancellationToken);
                 _application = application;
+                _shutdownCancellationTokenSource = shutdownCancellationTokenSource;
                 Volatile.Write(ref _port, ResolveBoundPort(application));
                 Volatile.Write(ref _started, 1);
 
@@ -96,6 +102,7 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
             }
             catch
             {
+                shutdownCancellationTokenSource.Dispose();
                 await application.DisposeAsync();
                 Volatile.Write(ref _port, 0);
                 Volatile.Write(ref _started, 0);
@@ -118,7 +125,7 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
 
         try
         {
-            if (!IsRunning && _application is null)
+            if (!IsRunning && _application is null && _clients.IsEmpty)
             {
                 return;
             }
@@ -128,32 +135,28 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
 
             var application = _application;
             _application = null;
+            var shutdownCancellationTokenSource = _shutdownCancellationTokenSource;
+            _shutdownCancellationTokenSource = null;
+            shutdownCancellationTokenSource?.Cancel();
 
-            var clients = _clients.Values.ToArray();
-            var disposeTasks = new Task[clients.Length];
-
-            for (var i = 0; i < clients.Length; i++)
+            try
             {
-                disposeTasks[i] = clients[i].DisposeAsync().AsTask();
-            }
-
-            if (disposeTasks.Length > 0)
-            {
-                await Task.WhenAll(disposeTasks);
-            }
-
-            _clients.Clear();
-
-            if (application is not null)
-            {
-                try
+                if (application is not null)
                 {
-                    await application.StopAsync(cancellationToken);
+                    try
+                    {
+                        await application.StopAsync(cancellationToken);
+                    }
+                    finally
+                    {
+                        await application.DisposeAsync();
+                    }
                 }
-                finally
-                {
-                    await application.DisposeAsync();
-                }
+            }
+            finally
+            {
+                await DisposeClientsAsync();
+                shutdownCancellationTokenSource?.Dispose();
             }
         }
         finally
@@ -197,16 +200,36 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
             return;
         }
 
+        if (!TryGetShutdownToken(out _))
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+
+            return;
+        }
+
         OrionWebSocketClient? client = null;
 
         try
         {
             var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+
+            if (!TryGetShutdownToken(out var shutdownToken))
+            {
+                await CloseAcceptedWebSocketAsync(webSocket);
+
+                return;
+            }
+
+            using var clientCancellationTokenSource =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    context.RequestAborted,
+                    shutdownToken
+                );
             client = new OrionWebSocketClient(webSocket, CreateRemoteEndPoint(context));
             WireClientEvents(client);
             _clients[client.SessionId] = client;
 
-            await client.RunAsync(context.RequestAborted);
+            await client.RunAsync(clientCancellationTokenSource.Token);
         }
         catch (OperationCanceledException)
         {
@@ -224,6 +247,24 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
                 _clients.TryRemove(client.SessionId, out var _);
             }
         }
+    }
+
+    private async Task DisposeClientsAsync()
+    {
+        var clients = _clients.Values.ToArray();
+        var disposeTasks = new Task[clients.Length];
+
+        for (var i = 0; i < clients.Length; i++)
+        {
+            disposeTasks[i] = clients[i].DisposeAsync().AsTask();
+        }
+
+        if (disposeTasks.Length > 0)
+        {
+            await Task.WhenAll(disposeTasks);
+        }
+
+        _clients.Clear();
     }
 
     private static EndPoint? CreateRemoteEndPoint(HttpContext context)
@@ -250,6 +291,76 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
         }
 
         return 0;
+    }
+
+    private static async Task CloseAcceptedWebSocketAsync(WebSocket webSocket)
+    {
+        try
+        {
+            if (webSocket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+            {
+                using var cancellationTokenSource = new CancellationTokenSource(
+                    AcceptedSocketCloseTimeout
+                );
+                await webSocket.CloseOutputAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "Server shutting down",
+                    cancellationTokenSource.Token
+                );
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Close timed out; aborting below will release the socket.
+        }
+        catch (WebSocketException)
+        {
+            // Peer may already be gone.
+        }
+        catch (ObjectDisposedException)
+        {
+            // Socket is already disposed.
+        }
+        finally
+        {
+            webSocket.Abort();
+            webSocket.Dispose();
+        }
+    }
+
+    private bool TryGetShutdownToken(out CancellationToken shutdownToken)
+    {
+        shutdownToken = default;
+
+        if (!IsRunning)
+        {
+            return false;
+        }
+
+        var shutdownCancellationTokenSource = Volatile.Read(
+            ref _shutdownCancellationTokenSource
+        );
+
+        if (shutdownCancellationTokenSource is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (shutdownCancellationTokenSource.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            shutdownToken = shutdownCancellationTokenSource.Token;
+
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
     }
 
     private void WireClientEvents(OrionWebSocketClient client)
