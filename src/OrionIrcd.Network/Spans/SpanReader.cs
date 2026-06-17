@@ -11,8 +11,8 @@ public ref struct SpanReader : IDisposable
 
     public int Length { get; private set; }
     public int Position { get; private set; }
-    public int Remaining => Length - Position;
-    public ReadOnlySpan<byte> Buffer => _buffer;
+    public readonly int Remaining => Length - Position;
+    public readonly ReadOnlySpan<byte> Buffer => _buffer;
 
     public SpanReader(ReadOnlySpan<byte> span)
     {
