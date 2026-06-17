@@ -62,6 +62,6 @@ public class StringProcessorTests
             CancellationToken.None
         );
 
-        Assert.Equal(string.Empty, result);
+        Assert.Equal("", result);
     }
 }

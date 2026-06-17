@@ -4,7 +4,7 @@ namespace OrionIrcd.Network.Types.Encryption;
 ///     Specifies which transport encryption modes the server accepts.
 /// </summary>
 [Flags]
-public enum EncryptionMode
+public enum NetworkEncryptionMode
 {
     /// <summary>
     ///     Disables encryption support.

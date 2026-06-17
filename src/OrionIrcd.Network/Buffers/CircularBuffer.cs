@@ -28,57 +28,6 @@ public class CircularBuffer<T> : IEnumerable<T>
     private int _start;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="CircularBuffer{T}" /> class.
-    /// </summary>
-    /// <param name='capacity'>
-    ///     Buffer capacity. Must be positive.
-    /// </param>
-    public CircularBuffer(int capacity)
-        : this(capacity, [])
-    {
-    }
-
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="CircularBuffer{T}" /> class.
-    /// </summary>
-    /// <param name='capacity'>
-    ///     Buffer capacity. Must be positive.
-    /// </param>
-    /// <param name='items'>
-    ///     Items to fill buffer with. Items length must be less than capacity.
-    ///     Suggestion: use Skip(x).Take(y).ToArray() to build this argument from
-    ///     any enumerable.
-    /// </param>
-    public CircularBuffer(int capacity, T[] items)
-    {
-        if (capacity < 1)
-        {
-            throw new ArgumentException(
-                "Circular buffer cannot have negative or zero capacity.",
-                nameof(capacity)
-            );
-        }
-
-        ArgumentNullException.ThrowIfNull(items);
-
-        if (items.Length > capacity)
-        {
-            throw new ArgumentException(
-                "Too many items to fit circular buffer",
-                nameof(items)
-            );
-        }
-
-        _buffer = new T[capacity];
-
-        Array.Copy(items, _buffer, items.Length);
-        Size = items.Length;
-
-        _start = 0;
-        _end = Size == capacity ? 0 : Size;
-    }
-
-    /// <summary>
     ///     Maximum capacity of the buffer. Elements pushed into the buffer after
     ///     maximum capacity is reached (IsFull = true), will remove an element.
     /// </summary>
@@ -142,6 +91,57 @@ public class CircularBuffer<T> : IEnumerable<T>
             var actualIndex = InternalIndex(index);
             _buffer[actualIndex] = value;
         }
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="CircularBuffer{T}" /> class.
+    /// </summary>
+    /// <param name='capacity'>
+    ///     Buffer capacity. Must be positive.
+    /// </param>
+    public CircularBuffer(int capacity)
+        : this(capacity, [])
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="CircularBuffer{T}" /> class.
+    /// </summary>
+    /// <param name='capacity'>
+    ///     Buffer capacity. Must be positive.
+    /// </param>
+    /// <param name='items'>
+    ///     Items to fill buffer with. Items length must be less than capacity.
+    ///     Suggestion: use Skip(x).Take(y).ToArray() to build this argument from
+    ///     any enumerable.
+    /// </param>
+    public CircularBuffer(int capacity, T[] items)
+    {
+        if (capacity < 1)
+        {
+            throw new ArgumentException(
+                "Circular buffer cannot have negative or zero capacity.",
+                nameof(capacity)
+            );
+        }
+
+        ArgumentNullException.ThrowIfNull(items);
+
+        if (items.Length > capacity)
+        {
+            throw new ArgumentException(
+                "Too many items to fit circular buffer",
+                nameof(items)
+            );
+        }
+
+        _buffer = new T[capacity];
+
+        Array.Copy(items, _buffer, items.Length);
+        Size = items.Length;
+
+        _start = 0;
+        _end = Size == capacity ? 0 : Size;
     }
 
     #region IEnumerable<T> implementation

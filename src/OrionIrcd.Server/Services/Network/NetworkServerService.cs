@@ -8,7 +8,7 @@ using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Network.Data.Options;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Network.Server;
@@ -131,9 +131,10 @@ public sealed class NetworkServerService : IOrionIrcdService
             try
             {
                 await Task.WhenAll(
-                    StopStartedTcpServersAsync(startedTcpServers, CancellationToken.None),
-                    StopStartedWebSocketServersAsync(startedWebSocketServers, CancellationToken.None)
-                ).ConfigureAwait(false);
+                              StopStartedTcpServersAsync(startedTcpServers, CancellationToken.None),
+                              StopStartedWebSocketServersAsync(startedWebSocketServers, CancellationToken.None)
+                          )
+                          .ConfigureAwait(false);
             }
             finally
             {
@@ -163,9 +164,10 @@ public sealed class NetworkServerService : IOrionIrcdService
         }
 
         await Task.WhenAll(
-            StopStartedTcpServersAsync(servers, cancellationToken),
-            StopStartedWebSocketServersAsync(webSocketServers, cancellationToken)
-        ).ConfigureAwait(false);
+                      StopStartedTcpServersAsync(servers, cancellationToken),
+                      StopStartedWebSocketServersAsync(webSocketServers, cancellationToken)
+                  )
+                  .ConfigureAwait(false);
     }
 
     private IEnumerable<OrionTcpServer> CreateTcpServers(NetworkSectionEntry entry)
@@ -259,6 +261,7 @@ public sealed class NetworkServerService : IOrionIrcdService
 
         var certificatePath = ResolveCertificatePath(_networkConfigSection.SSLCertFile);
         var password = _networkConfigSection.SSLCertPassword ?? string.Empty;
+
         return X509CertificateLoader.LoadPkcs12FromFile(
             certificatePath,
             password,
@@ -415,17 +418,18 @@ public sealed class NetworkServerService : IOrionIrcdService
         try
         {
             var result = await _resultProcessor.ProcessAsync(
-                connection,
-                data,
-                cancellationToken
-            ).ConfigureAwait(false);
+                                                   connection,
+                                                   data,
+                                                   cancellationToken
+                                               )
+                                               .ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(result))
             {
                 return;
             }
 
-            _eventBus?.Publish(new NetworkResultReceivedEvent<string>(connection, result));
+            await _eventBus?.PublishAsync(new NetworkResultReceivedEvent<string>(connection, result), cancellationToken);
         }
         catch (Exception exception)
         {

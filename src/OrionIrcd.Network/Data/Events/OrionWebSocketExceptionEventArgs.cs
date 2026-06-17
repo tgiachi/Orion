@@ -1,6 +1,6 @@
 using OrionIrcd.Network.Client;
 
-namespace OrionIrcd.Network.Events;
+namespace OrionIrcd.Network.Data.Events;
 
 /// <summary>
 ///     Event payload containing an exception raised by WebSocket server or client network loops.

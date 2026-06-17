@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using OrionIrcd.Core.Utils;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using Serilog;
 
 namespace OrionIrcd.Network.Server;
@@ -23,22 +23,6 @@ public sealed class OrionUdpServer : IAsyncDisposable, IDisposable
 
     private CancellationTokenSource? _cancellationTokenSource;
     private int _started;
-
-    /// <summary>
-    ///     Initializes a UDP server bound to the given endpoint on every <see cref="StartAsync" />.
-    /// </summary>
-    /// <param name="endPoint">Endpoint supplying the port (and address when not binding all interfaces).</param>
-    /// <param name="bindAllInterfaces">
-    ///     When <c>true</c> (default), binds one socket per local unicast address matching the endpoint's
-    ///     address family. When <c>false</c>, binds only <paramref name="endPoint" />.
-    /// </param>
-    public OrionUdpServer(IPEndPoint endPoint, bool bindAllInterfaces = true)
-    {
-        ArgumentNullException.ThrowIfNull(endPoint);
-
-        _endPoint = endPoint;
-        _bindAllInterfaces = bindAllInterfaces;
-    }
 
     /// <summary>
     ///     Optional response factory. Receives the datagram payload and the sender endpoint and returns
@@ -66,22 +50,26 @@ public sealed class OrionUdpServer : IAsyncDisposable, IDisposable
         }
     }
 
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync(CancellationToken.None);
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
-
     /// <summary>
     ///     Raised when receive loops throw an unexpected exception.
     /// </summary>
     public event EventHandler<OrionTcpExceptionEventArgs>? OnException;
+
+    /// <summary>
+    ///     Initializes a UDP server bound to the given endpoint on every <see cref="StartAsync" />.
+    /// </summary>
+    /// <param name="endPoint">Endpoint supplying the port (and address when not binding all interfaces).</param>
+    /// <param name="bindAllInterfaces">
+    ///     When <c>true</c> (default), binds one socket per local unicast address matching the endpoint's
+    ///     address family. When <c>false</c>, binds only <paramref name="endPoint" />.
+    /// </param>
+    public OrionUdpServer(IPEndPoint endPoint, bool bindAllInterfaces = true)
+    {
+        ArgumentNullException.ThrowIfNull(endPoint);
+
+        _endPoint = endPoint;
+        _bindAllInterfaces = bindAllInterfaces;
+    }
 
     /// <summary>
     ///     Starts listening, binding sockets and launching a receive loop per socket. Recreates the
@@ -251,5 +239,17 @@ public sealed class OrionUdpServer : IAsyncDisposable, IDisposable
         return NetworkUtils.GetListeningAddresses(_endPoint)
             .Select(address => new IPEndPoint(address.Address, _endPoint.Port))
             .ToArray();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync(CancellationToken.None);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

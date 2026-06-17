@@ -1,6 +1,6 @@
 using OrionIrcd.Network.Client;
 
-namespace OrionIrcd.Network.Events;
+namespace OrionIrcd.Network.Data.Events;
 
 /// <summary>
 ///     Event payload containing data received from a WebSocket network client.

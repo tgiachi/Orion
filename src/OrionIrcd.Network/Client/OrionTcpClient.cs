@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using OrionIrcd.Network.Buffers;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;
@@ -20,7 +20,6 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     private const int DefaultReceiveBufferSize = 8192;
     private const int DefaultHistoryBufferCapacity = 65536;
 
-    private static long _sessionIdSequence;
     private readonly INetFramer? _framer;
     private readonly CancellationTokenSource _internalCancellationTokenSource = new();
 
@@ -31,6 +30,7 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly Socket _socket;
     private readonly Stream _stream;
+    private static long _sessionIdSequence;
     private int _closed;
 
     private CancellationTokenRegistration _externalCancellationTokenRegistration;
@@ -38,58 +38,6 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     private int _pendingLength;
     private Task? _receiveLoopTask;
     private int _started;
-
-    /// <summary>
-    ///     Creates a client wrapper for an accepted socket.
-    /// </summary>
-    /// <param name="socket">Connected socket.</param>
-    /// <param name="middlewares">Optional middleware list.</param>
-    /// <param name="framer">
-    ///     Optional framer. When supplied, the receive loop accumulates middleware output and
-    ///     emits <see cref="OnDataReceived" /> once per complete frame instead of once per socket read.
-    /// </param>
-    /// <param name="receiveBufferSize">Receive chunk size in bytes.</param>
-    /// <param name="historyBufferCapacity">Max number of received bytes to keep in history.</param>
-    public OrionTcpClient(
-        Socket socket,
-        IEnumerable<INetMiddleware>? middlewares = null,
-        INetFramer? framer = null,
-        int receiveBufferSize = DefaultReceiveBufferSize,
-        int historyBufferCapacity = DefaultHistoryBufferCapacity
-    ) : this(
-        socket,
-        new NetworkStream(socket, false),
-        middlewares,
-        framer,
-        receiveBufferSize,
-        historyBufferCapacity
-    )
-    {
-    }
-
-    /// <summary>
-    ///     Creates a client wrapper for an accepted socket using the supplied transport stream.
-    /// </summary>
-    public OrionTcpClient(
-        Socket socket,
-        Stream stream,
-        IEnumerable<INetMiddleware>? middlewares = null,
-        INetFramer? framer = null,
-        int receiveBufferSize = DefaultReceiveBufferSize,
-        int historyBufferCapacity = DefaultHistoryBufferCapacity
-    )
-    {
-        ArgumentNullException.ThrowIfNull(socket);
-        ArgumentNullException.ThrowIfNull(stream);
-
-        _socket = socket;
-        _stream = stream;
-        _middlewarePipeline = new NetMiddlewarePipeline(middlewares);
-        _framer = framer;
-        _receiveBuffer = new CircularBuffer<byte>(historyBufferCapacity);
-        ReceiveBufferSize = receiveBufferSize;
-        SessionId = Interlocked.Increment(ref _sessionIdSequence);
-    }
 
     /// <summary>
     ///     Unique session identifier for this client connection.
@@ -170,36 +118,6 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     /// </summary>
     public bool IsConnected => _socket.Connected && Volatile.Read(ref _closed) == 0;
 
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        await CloseAsync();
-
-        // Drain the receive loop before disposing the resources it relies on.
-        if (_receiveLoopTask is not null)
-        {
-            try
-            {
-                await _receiveLoopTask;
-            }
-            catch
-            {
-                // Loop failures are already surfaced via OnException.
-            }
-        }
-
-        await _stream.DisposeAsync();
-        _sendLock.Dispose();
-        _internalCancellationTokenSource.Dispose();
-        _socket.Dispose();
-    }
-
-    /// <inheritdoc />
-    public void Dispose() // Sync-over-async: best effort. Prefer DisposeAsync.
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
-
     /// <summary>
     ///     Raised when the client is fully connected and receive loop starts.
     /// </summary>
@@ -221,6 +139,58 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     public event EventHandler<OrionTcpExceptionEventArgs>? OnException;
 
     /// <summary>
+    ///     Creates a client wrapper for an accepted socket.
+    /// </summary>
+    /// <param name="socket">Connected socket.</param>
+    /// <param name="middlewares">Optional middleware list.</param>
+    /// <param name="framer">
+    ///     Optional framer. When supplied, the receive loop accumulates middleware output and
+    ///     emits <see cref="OnDataReceived" /> once per complete frame instead of once per socket read.
+    /// </param>
+    /// <param name="receiveBufferSize">Receive chunk size in bytes.</param>
+    /// <param name="historyBufferCapacity">Max number of received bytes to keep in history.</param>
+    public OrionTcpClient(
+        Socket socket,
+        IEnumerable<INetMiddleware>? middlewares = null,
+        INetFramer? framer = null,
+        int receiveBufferSize = DefaultReceiveBufferSize,
+        int historyBufferCapacity = DefaultHistoryBufferCapacity
+    ) : this(
+        socket,
+        new NetworkStream(socket, false),
+        middlewares,
+        framer,
+        receiveBufferSize,
+        historyBufferCapacity
+    )
+    {
+    }
+
+    /// <summary>
+    ///     Creates a client wrapper for an accepted socket using the supplied transport stream.
+    /// </summary>
+    public OrionTcpClient(
+        Socket socket,
+        Stream stream,
+        IEnumerable<INetMiddleware>? middlewares = null,
+        INetFramer? framer = null,
+        int receiveBufferSize = DefaultReceiveBufferSize,
+        int historyBufferCapacity = DefaultHistoryBufferCapacity
+    )
+    {
+        ArgumentNullException.ThrowIfNull(socket);
+        ArgumentNullException.ThrowIfNull(stream);
+
+        _socket = socket;
+        _stream = stream;
+        _middlewarePipeline = new NetMiddlewarePipeline(middlewares);
+        _framer = framer;
+        _receiveBuffer = new CircularBuffer<byte>(historyBufferCapacity);
+        ReceiveBufferSize = receiveBufferSize;
+        SessionId = Interlocked.Increment(ref _sessionIdSequence);
+    }
+
+    /// <summary>
     ///     Adds a middleware component to this client pipeline.
     /// </summary>
     public OrionTcpClient AddMiddleware(INetMiddleware middleware)
@@ -233,14 +203,21 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
     /// <summary>
     ///     Closes the client connection and raises disconnect event once.
     /// </summary>
-    public async Task CloseAsync()
+    public async Task CloseAsync(CancellationToken cancellationToken = default)
     {
         if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
             return;
         }
 
-        await _internalCancellationTokenSource.CancelAsync();
+        try
+        {
+            await _internalCancellationTokenSource.CancelAsync().WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Once close has started, still tear down the socket below.
+        }
 
         try
         {
@@ -383,7 +360,7 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
         catch (Exception ex)
         {
             RaiseException(ex);
-            await CloseAsync();
+            await CloseAsync(CancellationToken.None);
         }
         finally
         {
@@ -403,7 +380,7 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
 
         if (cancellationToken.CanBeCanceled)
         {
-            _externalCancellationTokenRegistration = cancellationToken.Register(() => _ = CloseAsync());
+            _externalCancellationTokenRegistration = cancellationToken.Register(() => _ = CloseAsync(CancellationToken.None));
         }
 
         RaiseConnected();
@@ -589,7 +566,7 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
         {
             ArrayPool<byte>.Shared.Return(buffer);
             ReleasePendingBuffer();
-            await CloseAsync();
+            await CloseAsync(CancellationToken.None);
         }
     }
 
@@ -603,5 +580,35 @@ public sealed class OrionTcpClient : INetworkConnection, IAsyncDisposable, IDisp
         ArrayPool<byte>.Shared.Return(_pendingBuffer);
         _pendingBuffer = null;
         _pendingLength = 0;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await CloseAsync(CancellationToken.None);
+
+        // Drain the receive loop before disposing the resources it relies on.
+        if (_receiveLoopTask is not null)
+        {
+            try
+            {
+                await _receiveLoopTask;
+            }
+            catch
+            {
+                // Loop failures are already surfaced via OnException.
+            }
+        }
+
+        await _stream.DisposeAsync();
+        _sendLock.Dispose();
+        _internalCancellationTokenSource.Dispose();
+        _socket.Dispose();
+    }
+
+    /// <inheritdoc />
+    public void Dispose() // Sync-over-async: best effort. Prefer DisposeAsync.
+    {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

@@ -28,7 +28,7 @@ public static class TestCertificateFactory
 
         return X509CertificateLoader.LoadPkcs12(
             certificate.Export(X509ContentType.Pfx),
-            string.Empty,
+            "",
             X509KeyStorageFlags.EphemeralKeySet
         );
     }

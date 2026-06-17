@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Server;
 
 namespace OrionIrcd.Tests.Network.Framing;

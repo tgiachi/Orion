@@ -1,19 +1,19 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Buffers;
 
 namespace OrionIrcd.Network.Spans;
 
 public ref struct SpanWriter : IDisposable
 {
+    public const int AttributeMaximum = 100;
+
     private readonly bool _resize;
     private byte[]? _arrayToReturnToPool;
     private Span<byte> _buffer;
     private int _position;
-
-    public const int AttributeMaximum = 100;
 
     public int BytesWritten { get; private set; }
 
@@ -64,18 +64,18 @@ public ref struct SpanWriter : IDisposable
         private readonly byte[]? _buffer;
         private readonly bool _isPooled;
 
+        public Span<byte> Span
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _buffer is null ? Span<byte>.Empty : _buffer.AsSpan(0, _length);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal SpanOwner(int length, byte[]? buffer, bool isPooled)
         {
             _length = length;
             _buffer = buffer;
             _isPooled = isPooled;
-        }
-
-        public Span<byte> Span
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _buffer is null ? Span<byte>.Empty : _buffer.AsSpan(0, _length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -94,18 +94,6 @@ public ref struct SpanWriter : IDisposable
         GrowIfNeeded(count);
         _buffer.Slice(_position, count).Clear();
         Position += count;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose()
-    {
-        var toReturn = _arrayToReturnToPool;
-        this = default;
-
-        if (toReturn is not null)
-        {
-            ArrayPool<byte>.Shared.Return(toReturn);
-        }
     }
 
     public void EnsureCapacity(int capacity)
@@ -502,5 +490,17 @@ public ref struct SpanWriter : IDisposable
         }
 
         Grow(count);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose()
+    {
+        var toReturn = _arrayToReturnToPool;
+        this = default;
+
+        if (toReturn is not null)
+        {
+            ArrayPool<byte>.Shared.Return(toReturn);
+        }
     }
 }

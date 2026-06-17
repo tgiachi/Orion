@@ -21,6 +21,6 @@ public sealed class TestNetworkConnection : INetworkConnection
         return Task.CompletedTask;
     }
 
-    public Task CloseAsync()
+    public Task CloseAsync(CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }

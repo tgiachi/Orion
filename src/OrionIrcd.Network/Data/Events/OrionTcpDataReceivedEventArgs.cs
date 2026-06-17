@@ -1,18 +1,12 @@
 using OrionIrcd.Network.Client;
 
-namespace OrionIrcd.Network.Events;
+namespace OrionIrcd.Network.Data.Events;
 
 /// <summary>
 ///     Event payload containing data received from a network client.
 /// </summary>
 public sealed class OrionTcpDataReceivedEventArgs : EventArgs
 {
-    public OrionTcpDataReceivedEventArgs(OrionTcpClient client, ReadOnlyMemory<byte> data)
-    {
-        Client = client;
-        Data = data;
-    }
-
     /// <summary>
     ///     Source client for the data payload.
     /// </summary>
@@ -22,4 +16,10 @@ public sealed class OrionTcpDataReceivedEventArgs : EventArgs
     ///     Received data payload.
     /// </summary>
     public ReadOnlyMemory<byte> Data { get; }
+
+    public OrionTcpDataReceivedEventArgs(OrionTcpClient client, ReadOnlyMemory<byte> data)
+    {
+        Client = client;
+        Data = data;
+    }
 }

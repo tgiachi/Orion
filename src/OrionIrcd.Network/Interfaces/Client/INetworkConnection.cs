@@ -33,6 +33,7 @@ public interface INetworkConnection
     /// <summary>
     ///     Closes the connection.
     /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when the connection has closed.</returns>
-    Task CloseAsync();
+    Task CloseAsync(CancellationToken cancellationToken = default);
 }

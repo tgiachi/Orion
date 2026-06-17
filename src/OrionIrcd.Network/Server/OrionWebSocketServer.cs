@@ -11,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using Serilog;
 
 namespace OrionIrcd.Network.Server;
@@ -21,7 +21,7 @@ namespace OrionIrcd.Network.Server;
 /// </summary>
 public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
 {
-    private static readonly TimeSpan AcceptedSocketCloseTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan _acceptedSocketCloseTimeout = TimeSpan.FromSeconds(2);
 
     private readonly ConcurrentDictionary<long, OrionWebSocketClient> _clients = new();
     private readonly IPEndPoint _endPoint;
@@ -301,7 +301,7 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
             if (webSocket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 using var cancellationTokenSource = new CancellationTokenSource(
-                    AcceptedSocketCloseTimeout
+                    _acceptedSocketCloseTimeout
                 );
                 await webSocket.CloseOutputAsync(
                     WebSocketCloseStatus.NormalClosure,

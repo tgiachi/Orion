@@ -4,7 +4,7 @@ using System.Net.Security;
 using System.Net.Sockets;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;
 using Serilog;
@@ -35,6 +35,36 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
     private int _started;
 
     /// <summary>
+    ///     Current listening port. Returns 0 when the server is stopped.
+    /// </summary>
+    public int Port => ((IPEndPoint?)_serverSocket?.LocalEndPoint)?.Port ?? 0;
+
+    /// <summary>
+    ///     True when the server is currently accepting connections.
+    /// </summary>
+    public bool IsRunning => Volatile.Read(ref _started) != 0;
+
+    /// <summary>
+    ///     Raised when a client connects.
+    /// </summary>
+    public event EventHandler<OrionTcpClientEventArgs>? OnClientConnect;
+
+    /// <summary>
+    ///     Raised when a client disconnects.
+    /// </summary>
+    public event EventHandler<OrionTcpClientEventArgs>? OnClientDisconnect;
+
+    /// <summary>
+    ///     Raised when a client sends data after middleware processing.
+    /// </summary>
+    public event EventHandler<OrionTcpDataReceivedEventArgs>? OnDataReceived;
+
+    /// <summary>
+    ///     Raised when an exception happens in accept loop or client loops.
+    /// </summary>
+    public event EventHandler<OrionTcpExceptionEventArgs>? OnException;
+
+    /// <summary>
     ///     Initializes a TCP server bound to the given endpoint.
     /// </summary>
     /// <param name="endPoint">Endpoint to bind on every <see cref="StartAsync" />.</param>
@@ -58,48 +88,6 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
         _historyBufferCapacity = historyBufferCapacity;
         _tlsOptions = tlsOptions;
     }
-
-    /// <summary>
-    ///     Current listening port. Returns 0 when the server is stopped.
-    /// </summary>
-    public int Port => ((IPEndPoint?)_serverSocket?.LocalEndPoint)?.Port ?? 0;
-
-    /// <summary>
-    ///     True when the server is currently accepting connections.
-    /// </summary>
-    public bool IsRunning => Volatile.Read(ref _started) != 0;
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync(CancellationToken.None);
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
-
-    /// <summary>
-    ///     Raised when a client connects.
-    /// </summary>
-    public event EventHandler<OrionTcpClientEventArgs>? OnClientConnect;
-
-    /// <summary>
-    ///     Raised when a client disconnects.
-    /// </summary>
-    public event EventHandler<OrionTcpClientEventArgs>? OnClientDisconnect;
-
-    /// <summary>
-    ///     Raised when a client sends data after middleware processing.
-    /// </summary>
-    public event EventHandler<OrionTcpDataReceivedEventArgs>? OnDataReceived;
-
-    /// <summary>
-    ///     Raised when an exception happens in accept loop or client loops.
-    /// </summary>
-    public event EventHandler<OrionTcpExceptionEventArgs>? OnException;
 
     /// <summary>
     ///     Registers middleware in execution order.
@@ -307,5 +295,17 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
             );
             OnClientDisconnect?.Invoke(this, args);
         };
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync(CancellationToken.None);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

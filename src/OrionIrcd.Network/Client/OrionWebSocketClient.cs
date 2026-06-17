@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.WebSockets;
-using OrionIrcd.Network.Events;
+using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Interfaces.Client;
 using Serilog;
 
@@ -14,12 +14,12 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
 {
     private const int DefaultReceiveBufferSize = 8192;
 
-    private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
-    private static long _sessionIdSequence;
+    private static readonly TimeSpan _closeTimeout = TimeSpan.FromSeconds(2);
 
     private readonly ILogger _logger = Log.ForContext<OrionWebSocketClient>();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly WebSocket _webSocket;
+    private static long _sessionIdSequence;
     private int _closed;
     private int _disposed;
     private int _started;
@@ -115,7 +115,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
-            await CloseAsync();
+            await CloseAsync(CancellationToken.None);
         }
     }
 
@@ -152,7 +152,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         catch (Exception ex)
         {
             RaiseException(ex);
-            await CloseAsyncCore(false);
+            await CloseAsyncCore(false, CancellationToken.None);
         }
         finally
         {
@@ -163,9 +163,9 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     /// <summary>
     ///     Closes the WebSocket connection and raises disconnect event once.
     /// </summary>
-    public async Task CloseAsync()
+    public async Task CloseAsync(CancellationToken cancellationToken = default)
     {
-        await CloseAsyncCore(true);
+        await CloseAsyncCore(true, cancellationToken);
     }
 
     private bool CanSend()
@@ -175,7 +175,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
             && TryGetState() == WebSocketState.Open;
     }
 
-    private async Task CloseAsyncCore(bool acquireSendLock)
+    private async Task CloseAsyncCore(bool acquireSendLock, CancellationToken cancellationToken)
     {
         if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
@@ -191,13 +191,21 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         {
             if (TryGetState() is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                using var cancellationTokenSource = new CancellationTokenSource(CloseTimeout);
+                using var timeoutCancellationTokenSource = new CancellationTokenSource(_closeTimeout);
+                using var closeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                    timeoutCancellationTokenSource.Token,
+                    cancellationToken
+                );
                 await _webSocket.CloseOutputAsync(
                     WebSocketCloseStatus.NormalClosure,
                     "Normal closure",
-                    cancellationTokenSource.Token
+                    closeCancellationTokenSource.Token
                 );
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _webSocket.Abort();
         }
         catch (OperationCanceledException)
         {
@@ -311,7 +319,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
             return;
         }
 
-        await CloseAsync();
+        await CloseAsync(CancellationToken.None);
 
         await _sendLock.WaitAsync(CancellationToken.None);
 
