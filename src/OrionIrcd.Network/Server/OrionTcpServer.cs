@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Events;
@@ -20,6 +21,7 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
     private readonly IPEndPoint _endPoint;
     private readonly INetFramer? _framer;
     private readonly int _historyBufferCapacity;
+    private readonly OrionTcpServerTlsOptions? _tlsOptions;
 
     private readonly ILogger _logger = Log.ForContext<OrionTcpServer>();
     private readonly Lock _middlewareSync = new();
@@ -45,13 +47,15 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
         IPEndPoint endPoint,
         INetFramer? framer = null,
         int receiveBufferSize = 8192,
-        int historyBufferCapacity = 65536
+        int historyBufferCapacity = 65536,
+        OrionTcpServerTlsOptions? tlsOptions = null
     )
     {
         _endPoint = endPoint;
         _framer = framer;
         _receiveBufferSize = receiveBufferSize;
         _historyBufferCapacity = historyBufferCapacity;
+        _tlsOptions = tlsOptions;
     }
 
     /// <summary>
@@ -202,10 +206,12 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
             try
             {
                 var clientSocket = await serverSocket.AcceptAsync(cts.Token);
+                var clientStream = await CreateClientStreamAsync(clientSocket, cts.Token).ConfigureAwait(false);
 
                 var middlewareSnapshot = _middlewares;
                 var client = new OrionTcpClient(
                     clientSocket,
+                    clientStream,
                     middlewareSnapshot,
                     _framer,
                     _receiveBufferSize,
@@ -229,6 +235,35 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
                 _logger.Error(ex, "Accept loop failed");
                 OnException?.Invoke(this, new OrionTcpExceptionEventArgs(ex));
             }
+        }
+    }
+
+    private async Task<Stream> CreateClientStreamAsync(Socket clientSocket, CancellationToken cancellationToken)
+    {
+        var networkStream = new NetworkStream(clientSocket, false);
+
+        if (_tlsOptions is null)
+        {
+            return networkStream;
+        }
+
+        var sslStream = new SslStream(networkStream, false);
+
+        try
+        {
+            await sslStream.AuthenticateAsServerAsync(
+                _tlsOptions.ToAuthenticationOptions(),
+                cancellationToken
+            ).ConfigureAwait(false);
+
+            return sslStream;
+        }
+        catch
+        {
+            await sslStream.DisposeAsync().ConfigureAwait(false);
+            clientSocket.Dispose();
+
+            throw;
         }
     }
 

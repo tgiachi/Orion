@@ -1,6 +1,6 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
-using System.Buffers;
 using OrionIrcd.Network.Buffers;
 using OrionIrcd.Network.Events;
 using OrionIrcd.Network.Interfaces.Framing;
@@ -29,6 +29,7 @@ public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
     private readonly Lock _receiveBufferSync = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly Socket _socket;
+    private readonly Stream _stream;
     private int _closed;
 
     private CancellationTokenRegistration _externalCancellationTokenRegistration;
@@ -54,9 +55,34 @@ public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
         INetFramer? framer = null,
         int receiveBufferSize = DefaultReceiveBufferSize,
         int historyBufferCapacity = DefaultHistoryBufferCapacity
+    ) : this(
+        socket,
+        new NetworkStream(socket, false),
+        middlewares,
+        framer,
+        receiveBufferSize,
+        historyBufferCapacity
     )
     {
+    }
+
+    /// <summary>
+    ///     Creates a client wrapper for an accepted socket using the supplied transport stream.
+    /// </summary>
+    public OrionTcpClient(
+        Socket socket,
+        Stream stream,
+        IEnumerable<INetMiddleware>? middlewares = null,
+        INetFramer? framer = null,
+        int receiveBufferSize = DefaultReceiveBufferSize,
+        int historyBufferCapacity = DefaultHistoryBufferCapacity
+    )
+    {
+        ArgumentNullException.ThrowIfNull(socket);
+        ArgumentNullException.ThrowIfNull(stream);
+
         _socket = socket;
+        _stream = stream;
         _middlewarePipeline = new NetMiddlewarePipeline(middlewares);
         _framer = framer;
         _receiveBuffer = new CircularBuffer<byte>(historyBufferCapacity);
@@ -161,6 +187,7 @@ public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
             }
         }
 
+        await _stream.DisposeAsync();
         _sendLock.Dispose();
         _internalCancellationTokenSource.Dispose();
         _socket.Dispose();
@@ -349,19 +376,8 @@ public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
 
         try
         {
-            var sent = 0;
-
-            while (sent < processedPayload.Length && IsConnected)
-            {
-                var bytesSent = await _socket.SendAsync(processedPayload[sent..], SocketFlags.None, cancellationToken);
-
-                if (bytesSent <= 0)
-                {
-                    break;
-                }
-
-                sent += bytesSent;
-            }
+            await _stream.WriteAsync(processedPayload, cancellationToken);
+            await _stream.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -507,9 +523,8 @@ public sealed class OrionTcpClient : IAsyncDisposable, IDisposable
         {
             while (!_internalCancellationTokenSource.IsCancellationRequested && IsConnected)
             {
-                var received = await _socket.ReceiveAsync(
+                var received = await _stream.ReadAsync(
                     buffer.AsMemory(0, ReceiveBufferSize),
-                    SocketFlags.None,
                     _internalCancellationTokenSource.Token
                 );
 

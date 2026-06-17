@@ -1,5 +1,8 @@
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using OrionIrcd.Core.Data.Config.Sections;
+using OrionIrcd.Core.Directories;
+using OrionIrcd.Core.Extensions.Directories;
 using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
@@ -12,15 +15,17 @@ namespace OrionIrcd.Server.Services.Network;
 public sealed class NetworkServerService : IOrionIrcdService
 {
     private readonly ILogger _logger = Log.ForContext<NetworkServerService>();
+    private readonly DirectoriesConfig? _directoriesConfig;
     private readonly NetworkConfigSection _networkConfigSection;
     private readonly Lock _sync = new();
     private readonly List<OrionTcpServer> _tcpServers = [];
 
     private int _started;
 
-    public NetworkServerService(NetworkConfigSection networkConfigSection)
+    public NetworkServerService(NetworkConfigSection networkConfigSection, DirectoriesConfig? directoriesConfig = null)
     {
         _networkConfigSection = networkConfigSection;
+        _directoriesConfig = directoriesConfig;
     }
 
     public bool IsRunning => Volatile.Read(ref _started) != 0;
@@ -106,18 +111,63 @@ public sealed class NetworkServerService : IOrionIrcdService
             throw new NotSupportedException($"Network server type '{entry.Type}' is not supported yet.");
         }
 
-        if (entry.Protocol != ServerProtocolType.Plain)
+        if (entry.Protocol is not ServerProtocolType.Plain and not ServerProtocolType.SSL)
         {
             throw new NotSupportedException($"Network protocol '{entry.Protocol}' is not supported yet.");
         }
 
         var ipAddress = NetworkUtils.ParseIpAddress(entry.IpAddress);
         var ports = NetworkUtils.ParsePorts(entry.Ports).Distinct();
+        var tlsOptions = CreateTlsOptions(entry);
 
         foreach (var port in ports)
         {
-            yield return new OrionTcpServer(new IPEndPoint(ipAddress, port), new IrcLineFramer());
+            yield return new OrionTcpServer(
+                new IPEndPoint(ipAddress, port),
+                new IrcLineFramer(),
+                tlsOptions: tlsOptions
+            );
         }
+    }
+
+    private OrionTcpServerTlsOptions? CreateTlsOptions(NetworkSectionEntry entry)
+    {
+        if (entry.Protocol == ServerProtocolType.Plain)
+        {
+            return null;
+        }
+
+        var certificatePath = ResolveCertificatePath(_networkConfigSection.SSLCertFile);
+        var password = _networkConfigSection.SSLCertPassword ?? string.Empty;
+        var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+            certificatePath,
+            password,
+            X509KeyStorageFlags.EphemeralKeySet
+        );
+
+        return new OrionTcpServerTlsOptions(certificate);
+    }
+
+    private string ResolveCertificatePath(string certificateFile)
+    {
+        if (string.IsNullOrWhiteSpace(certificateFile))
+        {
+            throw new InvalidOperationException("SSL certificate file must be configured for SSL listeners.");
+        }
+
+        var resolvedCertificateFile = certificateFile.ResolvePathAndEnvs();
+
+        if (Path.IsPathRooted(resolvedCertificateFile))
+        {
+            return resolvedCertificateFile;
+        }
+
+        if (_directoriesConfig is not null)
+        {
+            return Path.Combine(_directoriesConfig[DirectoryType.Certs], resolvedCertificateFile);
+        }
+
+        return Path.GetFullPath(resolvedCertificateFile);
     }
 
     private static async Task StopServerAsync(OrionTcpServer server, CancellationToken cancellationToken)
