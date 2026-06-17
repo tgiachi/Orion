@@ -4,8 +4,8 @@ using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Extensions.Directories;
 using OrionIrcd.Core.Extensions.Logger;
-using OrionIrcd.Core.Toml;
 using OrionIrcd.Core.Types;
+using OrionIrcd.Core.Yaml;
 using Serilog;
 
 var container = new Container();
@@ -45,14 +45,14 @@ await ConsoleApp.RunAsync(
     }
 );
 
-static OrionIrcdConfig LoadConfig(Container container, string configFileName = "orionircd.toml")
+static OrionIrcdConfig LoadConfig(Container container, string configFileName = "orionircd.yaml")
 {
     var directoriesConfig = container.Resolve<DirectoriesConfig>();
     var configFullFileName = Path.Combine(directoriesConfig.Root, configFileName);
 
     if (File.Exists(configFullFileName))
     {
-        return TomlUtils.DeserializeFromFile<OrionIrcdConfig>(configFullFileName);
+        return YamlUtils.DeserializeFromFile<OrionIrcdConfig>(configFullFileName);
     }
 
     Console.WriteLine("Initializing default config " + configFileName);
@@ -70,7 +70,7 @@ static OrionIrcdConfig LoadConfig(Container container, string configFileName = "
         }
     );
 
-    TomlUtils.SerializeToFile(config, configFullFileName);
+    YamlUtils.SerializeToFile(config, configFullFileName);
 
     container.RegisterInstance(config);
     container.RegisterInstance(config.Network);
