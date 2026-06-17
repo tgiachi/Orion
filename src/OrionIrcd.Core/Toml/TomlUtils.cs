@@ -1,29 +1,30 @@
-using System.Collections.Concurrent;
 using Tomlyn;
 using Tomlyn.Serialization;
 
 namespace OrionIrcd.Core.Toml;
 
 /// <summary>
-/// Provides NativeAOT-friendly TOML serialization helpers.
+/// Provides TOML serialization helpers.
 /// </summary>
 public static class TomlUtils
 {
-    private static readonly ConcurrentBag<TomlSerializerContext> TomlSerializerContexts = new();
+    private static readonly TomlSerializerOptions DefaultOptions = new()
+    {
+        Converters = [new TomlStringEnumConverterFactory()]
+    };
 
     /// <summary>
-    /// Deserializes TOML text using a source-generated serializer context.
+    /// Deserializes TOML text using reflection-based metadata.
     /// </summary>
     /// <param name="toml">The TOML text to deserialize.</param>
-    /// <param name="context">The source-generated TOML serializer context.</param>
+    /// <param name="options">The serializer options.</param>
     /// <typeparam name="T">The target type.</typeparam>
     /// <returns>The deserialized object.</returns>
-    public static T Deserialize<T>(string toml, TomlSerializerContext context)
+    public static T Deserialize<T>(string toml, TomlSerializerOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(toml);
-        ArgumentNullException.ThrowIfNull(context);
 
-        return TomlSerializer.Deserialize<T>(toml, context) ??
+        return TomlSerializer.Deserialize<T>(toml, options ?? DefaultOptions) ??
                throw new TomlException($"Deserialization returned null for type {typeof(T).Name}");
     }
 
@@ -44,6 +45,22 @@ public static class TomlUtils
     }
 
     /// <summary>
+    /// Deserializes TOML from a file using reflection-based metadata.
+    /// </summary>
+    /// <param name="filePath">The TOML file path.</param>
+    /// <param name="options">The serializer options.</param>
+    /// <typeparam name="T">The target type.</typeparam>
+    /// <returns>The deserialized object.</returns>
+    public static T DeserializeFromFile<T>(string filePath, TomlSerializerOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        var toml = File.ReadAllText(GetExistingFilePath(filePath));
+
+        return Deserialize<T>(toml, options);
+    }
+
+    /// <summary>
     /// Deserializes TOML from a file using source-generated type metadata.
     /// </summary>
     /// <param name="filePath">The TOML file path.</param>
@@ -55,54 +72,23 @@ public static class TomlUtils
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         ArgumentNullException.ThrowIfNull(typeInfo);
 
-        var normalizedPath = Path.GetFullPath(filePath);
-
-        if (!File.Exists(normalizedPath))
-        {
-            throw new FileNotFoundException($"The file '{normalizedPath}' does not exist.", normalizedPath);
-        }
-
-        var toml = File.ReadAllText(normalizedPath);
+        var toml = File.ReadAllText(GetExistingFilePath(filePath));
 
         return Deserialize(toml, typeInfo);
     }
 
     /// <summary>
-    /// Gets a read-only view of registered TOML serializer contexts.
-    /// </summary>
-    /// <returns>The registered TOML serializer contexts.</returns>
-    public static IReadOnlyList<TomlSerializerContext> GetTomlContexts()
-    {
-        var contexts = new TomlSerializerContext[TomlSerializerContexts.Count];
-        TomlSerializerContexts.CopyTo(contexts, 0);
-
-        return Array.AsReadOnly(contexts);
-    }
-
-    /// <summary>
-    /// Registers a TOML serializer context for source-generated metadata.
-    /// </summary>
-    /// <param name="context">The context to register.</param>
-    public static void RegisterTomlContext(TomlSerializerContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        TomlSerializerContexts.Add(context);
-    }
-
-    /// <summary>
-    /// Serializes an object to TOML using a source-generated serializer context.
+    /// Serializes an object to TOML using reflection-based metadata.
     /// </summary>
     /// <param name="obj">The object to serialize.</param>
-    /// <param name="context">The source-generated TOML serializer context.</param>
+    /// <param name="options">The serializer options.</param>
     /// <typeparam name="T">The source type.</typeparam>
     /// <returns>The serialized TOML text.</returns>
-    public static string Serialize<T>(T obj, TomlSerializerContext context)
+    public static string Serialize<T>(T obj, TomlSerializerOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(obj);
-        ArgumentNullException.ThrowIfNull(context);
 
-        return TomlSerializer.Serialize(obj, context);
+        return TomlSerializer.Serialize(obj, options ?? DefaultOptions);
     }
 
     /// <summary>
@@ -121,6 +107,20 @@ public static class TomlUtils
     }
 
     /// <summary>
+    /// Serializes an object to a TOML file using reflection-based metadata.
+    /// </summary>
+    /// <param name="obj">The object to serialize.</param>
+    /// <param name="filePath">The output TOML file path.</param>
+    /// <param name="options">The serializer options.</param>
+    /// <typeparam name="T">The source type.</typeparam>
+    public static void SerializeToFile<T>(T obj, string filePath, TomlSerializerOptions? options = null)
+    {
+        var toml = Serialize(obj, options);
+
+        File.WriteAllText(GetWritableFilePath(filePath), toml);
+    }
+
+    /// <summary>
     /// Serializes an object to a TOML file using source-generated type metadata.
     /// </summary>
     /// <param name="obj">The object to serialize.</param>
@@ -129,9 +129,28 @@ public static class TomlUtils
     /// <typeparam name="T">The source type.</typeparam>
     public static void SerializeToFile<T>(T obj, string filePath, TomlTypeInfo<T> typeInfo)
     {
-        ArgumentNullException.ThrowIfNull(obj);
+        var toml = Serialize(obj, typeInfo);
+
+        File.WriteAllText(GetWritableFilePath(filePath), toml);
+    }
+
+    private static string GetExistingFilePath(string filePath)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        ArgumentNullException.ThrowIfNull(typeInfo);
+
+        var normalizedPath = Path.GetFullPath(filePath);
+
+        if (!File.Exists(normalizedPath))
+        {
+            throw new FileNotFoundException($"The file '{normalizedPath}' does not exist.", normalizedPath);
+        }
+
+        return normalizedPath;
+    }
+
+    private static string GetWritableFilePath(string filePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         var normalizedPath = Path.GetFullPath(filePath);
         var directory = Path.GetDirectoryName(normalizedPath);
@@ -141,7 +160,6 @@ public static class TomlUtils
             Directory.CreateDirectory(directory);
         }
 
-        var toml = Serialize(obj, typeInfo);
-        File.WriteAllText(normalizedPath, toml);
+        return normalizedPath;
     }
 }

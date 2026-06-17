@@ -10,23 +10,14 @@ public enum DirectoryType
     Logs,
 
     /// <summary>Directory for storing game assets like textures, sounds, and fonts</summary>
-    Assets,
-
-    /// <summary>Directory for storing game data and configuration files</summary>
-    Data,
-
     /// <summary>
     /// Directory for storing script files used by the game engine
     /// </summary>
     Scripts,
 
-    /// <summary>
-    /// Directory for storing scene files that define the layout and content of game levels or environments
-    /// </summary>
-    Scenes,
 
     /// <summary>
-    /// Directory for installed plugin folders (one subfolder per plugin Id).
+    /// Future Db
     /// </summary>
-    Plugins
+    Data,
 }
