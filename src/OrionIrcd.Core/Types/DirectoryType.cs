@@ -15,6 +15,11 @@ public enum DirectoryType
     /// </summary>
     Scripts,
 
+    /// <summary>
+    /// Where certs lives
+    /// </summary>
+
+    Certs,
 
     /// <summary>
     /// Future Db
