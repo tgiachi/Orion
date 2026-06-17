@@ -130,10 +130,16 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
             _application = null;
 
             var clients = _clients.Values.ToArray();
+            var disposeTasks = new Task[clients.Length];
 
             for (var i = 0; i < clients.Length; i++)
             {
-                await clients[i].DisposeAsync();
+                disposeTasks[i] = clients[i].DisposeAsync().AsTask();
+            }
+
+            if (disposeTasks.Length > 0)
+            {
+                await Task.WhenAll(disposeTasks);
             }
 
             _clients.Clear();

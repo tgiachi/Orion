@@ -21,6 +21,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly WebSocket _webSocket;
     private int _closed;
+    private int _disposed;
     private int _started;
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     /// <summary>
     ///     True when the underlying WebSocket is open and the client is not closed.
     /// </summary>
-    public bool IsConnected => Volatile.Read(ref _closed) == 0 && _webSocket.State == WebSocketState.Open;
+    public bool IsConnected => CanSend();
 
     /// <summary>
     ///     Raised when the client receive loop starts.
@@ -99,6 +100,10 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         {
             // Expected during controlled shutdown.
         }
+        catch (ObjectDisposedException)
+        {
+            // Expected when the socket is disposed during shutdown.
+        }
         catch (WebSocketException ex)
         {
             RaiseException(ex);
@@ -119,7 +124,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     /// </summary>
     public async Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
-        if (payload.IsEmpty || !IsConnected)
+        if (payload.IsEmpty || !CanSend())
         {
             return;
         }
@@ -128,7 +133,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
 
         try
         {
-            if (!IsConnected)
+            if (!CanSend())
             {
                 return;
             }
@@ -147,7 +152,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         catch (Exception ex)
         {
             RaiseException(ex);
-            await CloseAsync();
+            await CloseAsyncCore(false);
         }
         finally
         {
@@ -160,17 +165,34 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     /// </summary>
     public async Task CloseAsync()
     {
+        await CloseAsyncCore(true);
+    }
+
+    private bool CanSend()
+    {
+        return Volatile.Read(ref _disposed) == 0
+            && Volatile.Read(ref _closed) == 0
+            && TryGetState() == WebSocketState.Open;
+    }
+
+    private async Task CloseAsyncCore(bool acquireSendLock)
+    {
         if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
             return;
         }
 
+        if (acquireSendLock)
+        {
+            await _sendLock.WaitAsync(CancellationToken.None);
+        }
+
         try
         {
-            if (_webSocket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+            if (TryGetState() is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 using var cancellationTokenSource = new CancellationTokenSource(CloseTimeout);
-                await _webSocket.CloseAsync(
+                await _webSocket.CloseOutputAsync(
                     WebSocketCloseStatus.NormalClosure,
                     "Normal closure",
                     cancellationTokenSource.Token
@@ -191,6 +213,11 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         }
         finally
         {
+            if (acquireSendLock)
+            {
+                _sendLock.Release();
+            }
+
             RaiseDisconnected();
         }
     }
@@ -264,12 +291,39 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         OnException?.Invoke(this, new OrionWebSocketExceptionEventArgs(exception, this));
     }
 
+    private WebSocketState? TryGetState()
+    {
+        try
+        {
+            return _webSocket.State;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         await CloseAsync();
-        _sendLock.Dispose();
-        _webSocket.Dispose();
+
+        await _sendLock.WaitAsync(CancellationToken.None);
+
+        try
+        {
+            _webSocket.Abort();
+            _webSocket.Dispose();
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
     }
 
     /// <inheritdoc />
