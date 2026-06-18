@@ -1,5 +1,6 @@
 using System.Text;
 using OrionIrcd.Core.Data.Config;
+using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.Sessions;
@@ -64,6 +65,27 @@ public class IrcReplyServiceTests
 
         Assert.Equal(
             ":irc.example.net 001 squid :Welcome to OrionIRCd squid\r\n",
+            Encoding.UTF8.GetString(Assert.Single(connection.SentPayloads))
+        );
+    }
+
+    [Fact]
+    public async Task SendReplyAsync_WithTypedReply_UsesConfiguredServerName()
+    {
+        var sessionManager = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        var session = sessionManager.Register(connection);
+        var service = new IrcReplyService(sessionManager, CreateServerInfo("irc.example.net"));
+
+        var result = await service.SendReplyAsync(
+            session,
+            IrcReplies.NeedMoreParameters("USER"),
+            CancellationToken.None
+        );
+
+        Assert.True(result);
+        Assert.Equal(
+            ":irc.example.net 461 * USER :Not enough parameters\r\n",
             Encoding.UTF8.GetString(Assert.Single(connection.SentPayloads))
         );
     }

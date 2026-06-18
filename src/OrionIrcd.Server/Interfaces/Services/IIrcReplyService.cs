@@ -1,4 +1,5 @@
 using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Interfaces.IRC.Replies;
 
 namespace OrionIrcd.Server.Interfaces.Services;
 
@@ -20,6 +21,15 @@ public interface IIrcReplyService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True when the line was sent.</returns>
     Task<bool> SendLineAsync(NetworkSession session, string line, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Formats and sends a typed IRC reply.
+    /// </summary>
+    /// <param name="session">Target session.</param>
+    /// <param name="reply">Typed IRC reply.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the reply was sent.</returns>
+    Task<bool> SendReplyAsync(NetworkSession session, IIrcReply reply, CancellationToken cancellationToken);
 
     /// <summary>
     /// Sends a server-prefixed numeric reply.
