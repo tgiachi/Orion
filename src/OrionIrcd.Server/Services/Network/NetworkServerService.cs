@@ -7,13 +7,14 @@ using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
-using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Data.Events;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Network.Interfaces.Server;
 using OrionIrcd.Network.Server;
 using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Interfaces.Services;
 using Serilog;
 
 namespace OrionIrcd.Server.Services.Network;
@@ -25,6 +26,7 @@ public sealed class NetworkServerService : IOrionIrcdService
     private readonly IEventBus? _eventBus;
     private readonly NetworkConfigSection _networkConfigSection;
     private readonly IResultProcessor<string> _resultProcessor;
+    private readonly ISessionManagerService? _sessionManagerService;
     private readonly Lock _sync = new();
     private readonly List<INetworkServer> _servers = [];
 
@@ -34,13 +36,15 @@ public sealed class NetworkServerService : IOrionIrcdService
         NetworkConfigSection networkConfigSection,
         DirectoriesConfig? directoriesConfig = null,
         IResultProcessor<string>? resultProcessor = null,
-        IEventBus? eventBus = null
+        IEventBus? eventBus = null,
+        ISessionManagerService? sessionManagerService = null
     )
     {
         _networkConfigSection = networkConfigSection;
         _directoriesConfig = directoriesConfig;
         _resultProcessor = resultProcessor ?? new StringProcessor();
         _eventBus = eventBus;
+        _sessionManagerService = sessionManagerService;
     }
 
     public bool IsRunning => Volatile.Read(ref _started) != 0;
@@ -335,18 +339,26 @@ public sealed class NetworkServerService : IOrionIrcdService
     }
 
     private void OnTcpClientConnect(object? sender, OrionTcpClientEventArgs args)
-        => _logger.Information(
+    {
+        _logger.Information(
             "Client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
 
+        _sessionManagerService?.Register(args.Client);
+    }
+
     private void OnTcpClientDisconnect(object? sender, OrionTcpClientEventArgs args)
-        => _logger.Information(
+    {
+        _logger.Information(
             "Client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
+
+        _sessionManagerService?.Unregister(args.Client);
+    }
 
     private void OnTcpDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
     {
@@ -356,6 +368,7 @@ public sealed class NetworkServerService : IOrionIrcdService
             args.Data.Length
         );
 
+        _sessionManagerService?.RecordActivity(args.Client, args.Data);
         QueueReceivedData(args.Client, args.Data);
     }
 
@@ -363,18 +376,26 @@ public sealed class NetworkServerService : IOrionIrcdService
         => _logger.Error(args.Exception, "Network listener failed");
 
     private void OnWebSocketClientConnect(object? sender, OrionWebSocketClientEventArgs args)
-        => _logger.Information(
+    {
+        _logger.Information(
             "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
 
+        _sessionManagerService?.Register(args.Client);
+    }
+
     private void OnWebSocketClientDisconnect(object? sender, OrionWebSocketClientEventArgs args)
-        => _logger.Information(
+    {
+        _logger.Information(
             "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
             args.Client.SessionId,
             args.Client.RemoteEndPoint
         );
+
+        _sessionManagerService?.Unregister(args.Client);
+    }
 
     private void OnWebSocketDataReceived(object? sender, OrionWebSocketDataReceivedEventArgs args)
     {
@@ -384,6 +405,7 @@ public sealed class NetworkServerService : IOrionIrcdService
             args.Data.Length
         );
 
+        _sessionManagerService?.RecordActivity(args.Client, args.Data);
         QueueReceivedData(args.Client, args.Data);
     }
 

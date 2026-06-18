@@ -7,6 +7,8 @@ using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Server.Services.Sessions;
+using OrionIrcd.Server.Types;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Io;
 using OrionIrcd.Tests.Support.Network;
@@ -190,6 +192,52 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
+    public async Task StartAsync_TcpClientLifecycle_PublishesSessionEvents()
+    {
+        var eventBus = new RecordingEventBus();
+        var sessionManager = new SessionManagerService(eventBus, TimeProvider.System);
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus,
+            sessionManagerService: sessionManager
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+
+            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
+
+            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            client.Close();
+
+            var disconnectedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            Assert.Equal(connectedEvent.Session.SessionId, dataEvent.Session.SessionId);
+            Assert.Equal(connectedEvent.Session.SessionId, disconnectedEvent.Session.SessionId);
+            Assert.Equal("NICK squid\r\n"u8.Length, dataEvent.Session.BytesReceived);
+            Assert.Equal(NetworkSessionStatusType.Disconnected, disconnectedEvent.Session.Status);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task StartAsync_WebSocketEntry_ReceivesIrcLine_PublishesProcessedStringResult()
     {
         var eventBus = new RecordingEventBus();
@@ -225,6 +273,62 @@ public class NetworkServerServiceTests
             Assert.NotNull(publishedEvent.Connection);
 
             await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_WebSocketClientLifecycle_PublishesSessionEvents()
+    {
+        var eventBus = new RecordingEventBus();
+        var sessionManager = new SessionManagerService(eventBus, TimeProvider.System);
+        var config = CreateNetworkConfig("0");
+        config.Entries[0].Type = ServerType.WebSocket;
+        var service = new NetworkServerService(
+            config,
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus,
+            sessionManagerService: sessionManager
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new ClientWebSocket();
+            await client.ConnectAsync(
+                new Uri($"ws://127.0.0.1:{service.ListeningPorts.Single()}/"),
+                CancellationToken.None
+            );
+
+            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            await client.SendAsync(
+                "NICK squid\r\n"u8.ToArray(),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None
+            );
+
+            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+
+            var disconnectedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(
+                TimeSpan.FromSeconds(5)
+            );
+
+            Assert.Equal(connectedEvent.Session.SessionId, dataEvent.Session.SessionId);
+            Assert.Equal(connectedEvent.Session.SessionId, disconnectedEvent.Session.SessionId);
+            Assert.Equal("NICK squid\r\n"u8.Length, dataEvent.Session.BytesReceived);
+            Assert.Equal(NetworkSessionStatusType.Disconnected, disconnectedEvent.Session.Status);
         }
         finally
         {
