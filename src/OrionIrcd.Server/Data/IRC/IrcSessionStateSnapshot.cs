@@ -10,5 +10,7 @@ public sealed class IrcSessionStateSnapshot
 
     public string RealName { get; init; } = string.Empty;
 
+    public bool IsPassAccepted { get; init; }
+
     public bool IsRegistered { get; init; }
 }

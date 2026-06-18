@@ -54,6 +54,6 @@ public sealed class IrcCommandPipelineService : IAsyncEventListener<NetworkResul
             session.SessionId
         );
 
-        await _dispatcherService.DispatchAsync(session, command, cancellationToken).ConfigureAwait(false);
+        await _dispatcherService.DispatchAsync(session, command, cancellationToken);
     }
 }

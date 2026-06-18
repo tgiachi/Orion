@@ -30,6 +30,6 @@ public sealed class PingCommandListener : IIrcCommandListener<PingCommand>
             context.Session,
             IrcReplies.Pong(token),
             cancellationToken
-        ).ConfigureAwait(false);
+        );
     }
 }

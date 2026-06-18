@@ -32,8 +32,8 @@ public sealed class QuitCommandListener : IIrcCommandListener<QuitCommand>
             context.Session,
             IrcReplies.ClosingLink(reason),
             cancellationToken
-        ).ConfigureAwait(false);
+        );
 
-        await _sessionManagerService.CloseAsync(context.Session.SessionId, cancellationToken).ConfigureAwait(false);
+        await _sessionManagerService.CloseAsync(context.Session.SessionId, cancellationToken);
     }
 }

@@ -28,7 +28,7 @@ public sealed class CapCommandListener : IIrcCommandListener<CapCommand>
                 context.Session,
                 IrcReplies.CapabilityList(),
                 cancellationToken
-            ).ConfigureAwait(false);
+            );
 
             return;
         }
@@ -39,7 +39,7 @@ public sealed class CapCommandListener : IIrcCommandListener<CapCommand>
                 context.Session,
                 IrcReplies.CapabilityNak(context.Command.Capabilities),
                 cancellationToken
-            ).ConfigureAwait(false);
+            );
         }
     }
 }

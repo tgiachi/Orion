@@ -22,6 +22,9 @@ public static class IrcReplies
     public static IIrcReply NoNicknameGiven()
         => new IrcNumericReply("431", "*", "No nickname given");
 
+    public static IIrcReply PasswordMismatch()
+        => new IrcNumericReply("464", "*", "Password incorrect");
+
     public static IIrcReply Pong(string token)
         => new IrcPongReply(token);
 

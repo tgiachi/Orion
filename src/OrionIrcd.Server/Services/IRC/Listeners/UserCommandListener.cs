@@ -1,3 +1,4 @@
+using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.Server.Data.Events;
@@ -10,6 +11,7 @@ namespace OrionIrcd.Server.Services.IRC.Listeners;
 
 public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
 {
+    private readonly OrionIrcdConfig _config;
     private readonly IEventBus _eventBus;
     private readonly IIrcReplyService _replyService;
     private readonly IIrcSessionStateService _stateService;
@@ -17,11 +19,13 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
     public UserCommandListener(
         IIrcSessionStateService stateService,
         IIrcReplyService replyService,
+        OrionIrcdConfig config,
         IEventBus eventBus
     )
     {
         _stateService = stateService;
         _replyService = replyService;
+        _config = config;
         _eventBus = eventBus;
     }
 
@@ -38,7 +42,7 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
                 context.Session,
                 IrcReplies.NeedMoreParameters("USER"),
                 cancellationToken
-            ).ConfigureAwait(false);
+            );
 
             return;
         }
@@ -49,7 +53,7 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
             context.Command.RealName
         );
 
-        await TryCompleteRegistrationAsync(context, cancellationToken).ConfigureAwait(false);
+        await TryCompleteRegistrationAsync(context, cancellationToken);
     }
 
     private async Task TryCompleteRegistrationAsync(
@@ -57,7 +61,8 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
         CancellationToken cancellationToken
     )
     {
-        if (!_stateService.TryMarkRegistered(context.Session.SessionId, out var snapshot) || snapshot is null)
+        if (!_stateService.TryMarkRegistered(context.Session.SessionId, IsPassRequired(), out var snapshot) ||
+            snapshot is null)
         {
             return;
         }
@@ -66,9 +71,11 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
             context.Session,
             IrcReplies.Welcome(snapshot.Nickname),
             cancellationToken
-        ).ConfigureAwait(false);
+        );
 
-        await _eventBus.PublishAsync(new IrcSessionRegisteredEvent(context.Session, snapshot), cancellationToken)
-                       .ConfigureAwait(false);
+        await _eventBus.PublishAsync(new IrcSessionRegisteredEvent(context.Session, snapshot), cancellationToken);
     }
+
+    private bool IsPassRequired()
+        => !string.IsNullOrWhiteSpace(_config.Pass);
 }

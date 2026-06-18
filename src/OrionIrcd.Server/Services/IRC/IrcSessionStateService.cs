@@ -44,6 +44,14 @@ public sealed class IrcSessionStateService :
         }
     }
 
+    public void SetPassAccepted(long sessionId)
+    {
+        lock (_sync)
+        {
+            GetOrCreate(sessionId).IsPassAccepted = true;
+        }
+    }
+
     public bool TryGetSnapshot(long sessionId, out IrcSessionStateSnapshot? snapshot)
     {
         lock (_sync)
@@ -62,6 +70,9 @@ public sealed class IrcSessionStateService :
     }
 
     public bool TryMarkRegistered(long sessionId, out IrcSessionStateSnapshot? snapshot)
+        => TryMarkRegistered(sessionId, false, out snapshot);
+
+    public bool TryMarkRegistered(long sessionId, bool isPassRequired, out IrcSessionStateSnapshot? snapshot)
     {
         lock (_sync)
         {
@@ -69,7 +80,8 @@ public sealed class IrcSessionStateService :
 
             if (state.IsRegistered ||
                 string.IsNullOrWhiteSpace(state.Nickname) ||
-                string.IsNullOrWhiteSpace(state.Username))
+                string.IsNullOrWhiteSpace(state.Username) ||
+                (isPassRequired && !state.IsPassAccepted))
             {
                 snapshot = null;
 
@@ -116,6 +128,7 @@ public sealed class IrcSessionStateService :
             Nickname = state.Nickname,
             Username = state.Username,
             RealName = state.RealName,
+            IsPassAccepted = state.IsPassAccepted,
             IsRegistered = state.IsRegistered
         };
 

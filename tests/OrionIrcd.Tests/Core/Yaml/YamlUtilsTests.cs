@@ -1,5 +1,6 @@
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Types;
+using OrionIrcd.Core.Utils;
 using OrionIrcd.Core.Yaml;
 
 namespace OrionIrcd.Tests.Core.Yaml;
@@ -9,25 +10,28 @@ public class YamlUtilsTests
     [Fact]
     public void Deserialize_ConfigWithEnumNames_ReadsNetworkEntries()
     {
-        const string yaml = """
-                            ServerName: irc.orionircd.net
-                            NetworkName: irc.orionircd.net
-                            Logging:
-                              LogToConsole: true
-                              LogToFile: false
-                              LogLevel: Information
-                            Network:
-                              Entries:
-                                - IpAddress: '*'
-                                  Ports: 6666-6668
-                                  Type: TCP
-                                  Protocol: Plain
-                                  Mode: Server
-                            """;
+        var passwordHash = HashUtils.HashPassword("server-secret");
+        var yaml = $$"""
+                     ServerName: irc.orionircd.net
+                     NetworkName: irc.orionircd.net
+                     Pass: {{passwordHash}}
+                     Logging:
+                       LogToConsole: true
+                       LogToFile: false
+                       LogLevel: Information
+                     Network:
+                       Entries:
+                         - IpAddress: '*'
+                           Ports: 6666-6668
+                           Type: TCP
+                           Protocol: Plain
+                           Mode: Server
+                     """;
 
         var config = YamlUtils.Deserialize<OrionIrcdConfig>(yaml);
 
         var entry = Assert.Single(config.Network.Entries);
+        Assert.True(HashUtils.VerifyPassword("server-secret", config.Pass));
         Assert.Equal("*", entry.IpAddress);
         Assert.Equal(ServerType.TCP, entry.Type);
         Assert.Equal(ServerProtocolType.Plain, entry.Protocol);
@@ -38,6 +42,7 @@ public class YamlUtilsTests
     public void Serialize_ConfigWithNetworkEntries_WritesFormattedYaml()
     {
         var config = new OrionIrcdConfig();
+        config.Pass = HashUtils.HashPassword("server-secret");
 
         config.Network.Entries.Add(
             new()
@@ -53,6 +58,8 @@ public class YamlUtilsTests
         var yaml = YamlUtils.Serialize(config);
 
         Assert.Contains("ServerName: irc.orionircd.net", yaml);
+        Assert.Contains("Pass: pbkdf2-sha256$", yaml);
+        Assert.DoesNotContain("server-secret", yaml);
         Assert.Contains("Network:", yaml);
         Assert.Contains("Entries:", yaml);
         Assert.Contains("- IpAddress: '*'", yaml);

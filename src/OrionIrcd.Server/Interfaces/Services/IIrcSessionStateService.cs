@@ -29,12 +29,27 @@ public interface IIrcSessionStateService
     void SetUser(long sessionId, string username, string realName);
 
     /// <summary>
+    /// Marks the configured server PASS as accepted for a session.
+    /// </summary>
+    /// <param name="sessionId">Network session id.</param>
+    void SetPassAccepted(long sessionId);
+
+    /// <summary>
     /// Attempts to complete registration when NICK and USER are present.
     /// </summary>
     /// <param name="sessionId">Network session id.</param>
     /// <param name="snapshot">Registered snapshot when registration transitioned to complete.</param>
     /// <returns>True only when this call completes registration.</returns>
     bool TryMarkRegistered(long sessionId, out IrcSessionStateSnapshot? snapshot);
+
+    /// <summary>
+    /// Attempts to complete registration when NICK, USER, and any required PASS are present.
+    /// </summary>
+    /// <param name="sessionId">Network session id.</param>
+    /// <param name="isPassRequired">Whether PASS must be accepted before registration.</param>
+    /// <param name="snapshot">Registered snapshot when registration transitioned to complete.</param>
+    /// <returns>True only when this call completes registration.</returns>
+    bool TryMarkRegistered(long sessionId, bool isPassRequired, out IrcSessionStateSnapshot? snapshot);
 
     /// <summary>
     /// Attempts to get existing IRC state without creating it.

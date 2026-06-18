@@ -1,5 +1,6 @@
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Interfaces.Events;
+using OrionIrcd.Core.Utils;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.IRC.Replies;
@@ -9,14 +10,14 @@ using OrionIrcd.Server.Interfaces.Services;
 
 namespace OrionIrcd.Server.Services.IRC.Listeners;
 
-public sealed class NickCommandListener : IIrcCommandListener<NickCommand>
+public sealed class PassCommandListener : IIrcCommandListener<PassCommand>
 {
     private readonly OrionIrcdConfig _config;
     private readonly IEventBus _eventBus;
     private readonly IIrcReplyService _replyService;
     private readonly IIrcSessionStateService _stateService;
 
-    public NickCommandListener(
+    public PassCommandListener(
         IIrcSessionStateService stateService,
         IIrcReplyService replyService,
         OrionIrcdConfig config,
@@ -30,39 +31,41 @@ public sealed class NickCommandListener : IIrcCommandListener<NickCommand>
     }
 
     public async ValueTask HandleCommandAsync(
-        IrcCommandListenerContext<NickCommand> context,
+        IrcCommandListenerContext<PassCommand> context,
         CancellationToken cancellationToken = default
     )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(context.Command.Nickname))
+        if (string.IsNullOrWhiteSpace(context.Command.Password))
         {
             await _replyService.SendReplyAsync(
                 context.Session,
-                IrcReplies.NoNicknameGiven(),
+                IrcReplies.NeedMoreParameters("PASS"),
                 cancellationToken
             );
 
             return;
         }
 
-        if (!_stateService.TrySetNickname(context.Session.SessionId, context.Command.Nickname))
+        if (IsPassRequired() && !HashUtils.VerifyPassword(context.Command.Password, _config.Pass))
         {
             await _replyService.SendReplyAsync(
                 context.Session,
-                IrcReplies.NicknameInUse(context.Command.Nickname),
+                IrcReplies.PasswordMismatch(),
                 cancellationToken
             );
 
             return;
         }
+
+        _stateService.SetPassAccepted(context.Session.SessionId);
 
         await TryCompleteRegistrationAsync(context, cancellationToken);
     }
 
     private async Task TryCompleteRegistrationAsync(
-        IrcCommandListenerContext<NickCommand> context,
+        IrcCommandListenerContext<PassCommand> context,
         CancellationToken cancellationToken
     )
     {

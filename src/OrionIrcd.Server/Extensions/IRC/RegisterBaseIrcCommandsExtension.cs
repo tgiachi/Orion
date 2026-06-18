@@ -28,7 +28,6 @@ public static class RegisterBaseIrcCommandsExtension
             container.Register<IIrcCommandFactory, IrcCommandFactory>(Reuse.Singleton);
             container.Register<IIrcCommandDispatcherService, IrcCommandDispatcherService>(Reuse.Singleton);
             container.Register<IIrcReplyService, IrcReplyService>(Reuse.Singleton);
-            container.Register<IIrcServerInfoService, IrcServerInfoService>(Reuse.Singleton);
 
             var stateService = new IrcSessionStateService();
             container.RegisterInstance<IIrcSessionStateService>(stateService);
@@ -40,6 +39,7 @@ public static class RegisterBaseIrcCommandsExtension
 
             container.RegisterIrcCommandList<CapCommand, CapCommandListener>();
             container.RegisterIrcCommandList<NickCommand, NickCommandListener>();
+            container.RegisterIrcCommandList<PassCommand, PassCommandListener>();
             container.RegisterIrcCommandList<PingCommand, PingCommandListener>();
             container.RegisterIrcCommandList<PongCommand, PongCommandListener>();
             container.RegisterIrcCommandList<QuitCommand, QuitCommandListener>();
@@ -53,6 +53,7 @@ public static class RegisterBaseIrcCommandsExtension
     {
         registry.RegisterCommand<CapCommand>(BindCap);
         registry.RegisterCommand<NickCommand>(BindNick);
+        registry.RegisterCommand<PassCommand>(BindPass);
         registry.RegisterCommand<PingCommand>(BindPing);
         registry.RegisterCommand<PongCommand>(BindPong);
         registry.RegisterCommand<QuitCommand>(BindQuit);
@@ -68,6 +69,11 @@ public static class RegisterBaseIrcCommandsExtension
     private static void BindNick(NickCommand command, RawIrcMessage raw)
     {
         command.Nickname = raw.Params.Count > 0 ? raw.Params[0] : string.Empty;
+    }
+
+    private static void BindPass(PassCommand command, RawIrcMessage raw)
+    {
+        command.Password = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty);
     }
 
     private static void BindPing(PingCommand command, RawIrcMessage raw)

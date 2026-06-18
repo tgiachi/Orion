@@ -36,7 +36,7 @@ public sealed class EventBus : IEventBus
             listener => Task.Run(() => DispatchAsync(listener, eventData, cancellationToken), cancellationToken)
         );
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        await Task.WhenAll(tasks);
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -53,7 +53,7 @@ public sealed class EventBus : IEventBus
     {
         try
         {
-            await listener.HandleAsync(eventData, cancellationToken).ConfigureAwait(false);
+            await listener.HandleAsync(eventData, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

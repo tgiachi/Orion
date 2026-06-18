@@ -18,8 +18,6 @@ public sealed class SessionManagerService : ISessionManagerService
 
     public SessionManagerService(IEventBus eventBus, TimeProvider? timeProvider = null)
     {
-        ArgumentNullException.ThrowIfNull(eventBus);
-
         _eventBus = eventBus;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -42,7 +40,7 @@ public sealed class SessionManagerService : ISessionManagerService
 
         try
         {
-            await session.Connection.CloseAsync(cancellationToken).ConfigureAwait(false);
+            await session.Connection.CloseAsync(cancellationToken);
         }
         catch (Exception exception)
         {
@@ -108,7 +106,7 @@ public sealed class SessionManagerService : ISessionManagerService
             return false;
         }
 
-        await session.Connection.SendAsync(payload, cancellationToken).ConfigureAwait(false);
+        await session.Connection.SendAsync(payload, cancellationToken);
 
         return true;
     }
@@ -124,7 +122,7 @@ public sealed class SessionManagerService : ISessionManagerService
     {
         foreach (var session in GetSessions())
         {
-            await CloseAsync(session.SessionId, cancellationToken).ConfigureAwait(false);
+            await CloseAsync(session.SessionId, cancellationToken);
             Unregister(session.Connection);
         }
     }

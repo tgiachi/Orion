@@ -20,18 +20,18 @@ public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await StartServicesAsync().ConfigureAwait(false);
+        await StartServicesAsync();
 
         _logger.Information("All services started. OrionIRCd is now running.");
 
         try
         {
-            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(Timeout.Infinite, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         finally
         {
-            await StopServicesAsync().ConfigureAwait(false);
+            await StopServicesAsync();
         }
     }
 
@@ -53,7 +53,7 @@ public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
 
             _logger.Information("Starting service {ServiceType}", serviceRegistrationObject.ImplementationType.Name);
 
-            await service.StartAsync(CancellationToken.None).ConfigureAwait(false);
+            await service.StartAsync(CancellationToken.None);
         }
     }
 
@@ -67,7 +67,7 @@ public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
             {
                 _logger.Information("Stopping service {ServiceType}", serviceRegistrationObject.ImplementationType.Name);
 
-                await service.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                await service.StopAsync(CancellationToken.None);
             }
             catch (Exception exception)
             {

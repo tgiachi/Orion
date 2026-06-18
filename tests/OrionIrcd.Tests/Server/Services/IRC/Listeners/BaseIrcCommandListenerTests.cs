@@ -1,5 +1,6 @@
 using System.Text;
 using OrionIrcd.Core.Data.Config;
+using OrionIrcd.Core.Utils;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
 using OrionIrcd.Server.Data.Events;
@@ -66,10 +67,12 @@ public class BaseIrcCommandListenerTests
     {
         var context = CreateContext(new NickCommand { Nickname = "squid" }, out var connection);
         var stateService = new IrcSessionStateService();
+        var config = CreateConfig();
         stateService.TrySetNickname(99, "squid");
         var listener = new NickCommandListener(
             stateService,
-            CreateReplyService(context.SessionManager),
+            CreateReplyService(context.SessionManager, config),
+            config,
             new RecordingEventBus()
         );
 
@@ -82,9 +85,11 @@ public class BaseIrcCommandListenerTests
     public async Task NickCommandListener_WithEmptyNickname_SendsNoNicknameError()
     {
         var context = CreateContext(new NickCommand { Nickname = string.Empty }, out var connection);
+        var config = CreateConfig();
         var listener = new NickCommandListener(
             new IrcSessionStateService(),
-            CreateReplyService(context.SessionManager),
+            CreateReplyService(context.SessionManager, config),
+            config,
             new RecordingEventBus()
         );
 
@@ -106,10 +111,12 @@ public class BaseIrcCommandListenerTests
         );
         var eventBus = new RecordingEventBus();
         var stateService = new IrcSessionStateService();
+        var config = CreateConfig();
         stateService.TrySetNickname(context.ListenerContext.Session.SessionId, "squid");
         var listener = new UserCommandListener(
             stateService,
-            CreateReplyService(context.SessionManager),
+            CreateReplyService(context.SessionManager, config),
+            config,
             eventBus
         );
 
@@ -125,9 +132,11 @@ public class BaseIrcCommandListenerTests
     public async Task UserCommandListener_WithMissingUsername_SendsNeedMoreParams()
     {
         var context = CreateContext(new UserCommand(), out var connection);
+        var config = CreateConfig();
         var listener = new UserCommandListener(
             new IrcSessionStateService(),
-            CreateReplyService(context.SessionManager),
+            CreateReplyService(context.SessionManager, config),
+            config,
             new RecordingEventBus()
         );
 
@@ -136,16 +145,56 @@ public class BaseIrcCommandListenerTests
         Assert.Equal(":orionircd 461 * USER :Not enough parameters\r\n", ReadSinglePayload(connection));
     }
 
-    private static IrcReplyService CreateReplyService(SessionManagerService sessionManagerService)
+    [Fact]
+    public async Task PassCommandListener_WithHashedConfigPass_AcceptsPlainPassword()
+    {
+        var context = CreateContext(new PassCommand { Password = "server-secret" }, out var connection);
+        var config = CreateConfig();
+        config.Pass = HashUtils.HashPassword("server-secret");
+        var stateService = new IrcSessionStateService();
+        var listener = new PassCommandListener(
+            stateService,
+            CreateReplyService(context.SessionManager, config),
+            config,
+            new RecordingEventBus()
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+        var snapshot = stateService.GetSnapshot(context.ListenerContext.Session.SessionId);
+
+        Assert.True(snapshot.IsPassAccepted);
+        Assert.Empty(connection.SentPayloads);
+    }
+
+    [Fact]
+    public async Task PassCommandListener_WithPlainConfigPass_SendsPasswordMismatch()
+    {
+        var context = CreateContext(new PassCommand { Password = "server-secret" }, out var connection);
+        var config = CreateConfig();
+        config.Pass = "server-secret";
+        var listener = new PassCommandListener(
+            new IrcSessionStateService(),
+            CreateReplyService(context.SessionManager, config),
+            config,
+            new RecordingEventBus()
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+
+        Assert.Equal(":orionircd 464 * :Password incorrect\r\n", ReadSinglePayload(connection));
+    }
+
+    private static IrcReplyService CreateReplyService(
+        SessionManagerService sessionManagerService,
+        OrionIrcdConfig? config = null
+    )
         => new(
             sessionManagerService,
-            new IrcServerInfoService(
-                new OrionIrcdConfig
-                {
-                    ServerName = "orionircd"
-                }
-            )
+            config ?? CreateConfig()
         );
+
+    private static OrionIrcdConfig CreateConfig()
+        => new() { ServerName = "orionircd" };
 
     private static ListenerTestContext<TCommand> CreateContext<TCommand>(
         TCommand command,

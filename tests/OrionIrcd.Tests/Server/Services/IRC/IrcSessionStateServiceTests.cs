@@ -83,6 +83,23 @@ public class IrcSessionStateServiceTests
     }
 
     [Fact]
+    public void TryMarkRegistered_WithRequiredPass_ReturnsFalseUntilPassAccepted()
+    {
+        var service = new IrcSessionStateService();
+        service.TrySetNickname(10, "squid");
+        service.SetUser(10, "squiduser", "Squid User");
+
+        var beforePass = service.TryMarkRegistered(10, true, out _);
+        service.SetPassAccepted(10);
+        var afterPass = service.TryMarkRegistered(10, true, out var registered);
+
+        Assert.False(beforePass);
+        Assert.True(afterPass);
+        Assert.NotNull(registered);
+        Assert.True(registered.IsPassAccepted);
+    }
+
+    [Fact]
     public void TrySetNickname_WhenNicknameIsUsedByAnotherSession_ReturnsFalse()
     {
         var service = new IrcSessionStateService();

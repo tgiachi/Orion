@@ -1,7 +1,6 @@
 using System.Text;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Server.Data.IRC.Replies;
-using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.Sessions;
 using OrionIrcd.Tests.Support.Events;
@@ -17,7 +16,7 @@ public class IrcReplyServiceTests
         var sessionManager = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
         var connection = new TestNetworkConnection { SessionId = 10 };
         var session = sessionManager.Register(connection);
-        var service = new IrcReplyService(sessionManager, CreateServerInfo("orionircd"));
+        var service = new IrcReplyService(sessionManager, CreateConfig("orionircd"));
 
         var result = await service.SendLineAsync(session, "PONG :abc", CancellationToken.None);
 
@@ -31,7 +30,7 @@ public class IrcReplyServiceTests
         var sessionManager = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
         var connection = new TestNetworkConnection { SessionId = 10 };
         var session = sessionManager.Register(connection);
-        var service = new IrcReplyService(sessionManager, CreateServerInfo("orionircd"));
+        var service = new IrcReplyService(sessionManager, CreateConfig("orionircd"));
 
         await service.SendNumericAsync(
             session,
@@ -48,12 +47,12 @@ public class IrcReplyServiceTests
     }
 
     [Fact]
-    public async Task SendNumericAsync_WithCustomServerInfo_UsesConfiguredServerName()
+    public async Task SendNumericAsync_WithCustomConfig_UsesConfiguredServerName()
     {
         var sessionManager = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
         var connection = new TestNetworkConnection { SessionId = 10 };
         var session = sessionManager.Register(connection);
-        var service = new IrcReplyService(sessionManager, new TestIrcServerInfoService("irc.example.net"));
+        var service = new IrcReplyService(sessionManager, CreateConfig("irc.example.net"));
 
         await service.SendNumericAsync(
             session,
@@ -75,7 +74,7 @@ public class IrcReplyServiceTests
         var sessionManager = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
         var connection = new TestNetworkConnection { SessionId = 10 };
         var session = sessionManager.Register(connection);
-        var service = new IrcReplyService(sessionManager, CreateServerInfo("irc.example.net"));
+        var service = new IrcReplyService(sessionManager, CreateConfig("irc.example.net"));
 
         var result = await service.SendReplyAsync(
             session,
@@ -91,28 +90,27 @@ public class IrcReplyServiceTests
     }
 
     [Fact]
-    public void IrcServerInfoService_WithConfig_ReturnsConfiguredServerName()
+    public void ServerName_WithConfig_ReturnsConfiguredServerName()
     {
-        var service = CreateServerInfo("irc.config.net");
+        var service = new IrcReplyService(
+            new SessionManagerService(new RecordingEventBus(), TimeProvider.System),
+            CreateConfig("irc.config.net")
+        );
 
         Assert.Equal("irc.config.net", service.ServerName);
     }
 
-    private static IrcServerInfoService CreateServerInfo(string serverName)
-        => new(
-            new OrionIrcdConfig
-            {
-                ServerName = serverName
-            }
+    [Fact]
+    public void ServerName_WithBlankConfig_ReturnsDefaultServerName()
+    {
+        var service = new IrcReplyService(
+            new SessionManagerService(new RecordingEventBus(), TimeProvider.System),
+            CreateConfig(string.Empty)
         );
 
-    private sealed class TestIrcServerInfoService : IIrcServerInfoService
-    {
-        public TestIrcServerInfoService(string serverName)
-        {
-            ServerName = serverName;
-        }
-
-        public string ServerName { get; }
+        Assert.Equal("irc.orionircd.net", service.ServerName);
     }
+
+    private static OrionIrcdConfig CreateConfig(string serverName)
+        => new() { ServerName = serverName };
 }

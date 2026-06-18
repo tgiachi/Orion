@@ -3,6 +3,7 @@ using DryIoc;
 using OrionIrcd.Core.Container;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Interfaces.Events;
+using OrionIrcd.Core.Utils;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
 using OrionIrcd.IRC.Message;
@@ -39,11 +40,11 @@ public class IrcCommandPipelineServiceTests
 
         container.RegisterBaseIrcCommands();
 
-        Assert.Equal("irc.config.net", container.Resolve<IIrcServerInfoService>().ServerName);
+        Assert.Equal("irc.config.net", container.Resolve<IIrcReplyService>().ServerName);
         Assert.NotNull(container.Resolve<IIrcCommandFactory>());
         Assert.NotNull(container.Resolve<IIrcReplyService>());
         Assert.NotNull(container.Resolve<IIrcSessionStateService>());
-        Assert.Equal(6, container.Resolve<List<IrcCommandDispatchRegistration>>().Count);
+        Assert.Equal(7, container.Resolve<List<IrcCommandDispatchRegistration>>().Count);
         Assert.NotEmpty(
             container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
                 behavior: ResolveManyBehavior.AsFixedArray
@@ -118,6 +119,45 @@ public class IrcCommandPipelineServiceTests
             connection.SentPayloads,
             payload => Encoding.UTF8.GetString(payload) == ":orionircd 001 squid :Welcome to OrionIRCd squid\r\n"
         );
+        Assert.Contains(eventBus.Events, eventData => eventData is IrcSessionRegisteredEvent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithConfiguredPass_RequiresValidPassBeforeRegistration()
+    {
+        using var container = new Container();
+        var eventBus = new RecordingEventBus();
+        container.RegisterInstance(
+            new OrionIrcdConfig
+            {
+                ServerName = "orionircd",
+                Pass = HashUtils.HashPassword("server-secret")
+            }
+        );
+        container.RegisterInstance<IEventBus>(eventBus);
+        container.RegisterService<ISessionManagerService, SessionManagerService>(50);
+        container.RegisterBaseIrcCommands();
+        var sessionManager = container.Resolve<ISessionManagerService>();
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        sessionManager.Register(connection);
+        var listener = Assert.Single(
+            container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
+                behavior: ResolveManyBehavior.AsFixedArray
+            )
+        );
+
+        await listener.HandleAsync(new NetworkResultReceivedEvent<string>(connection, "NICK squid"), CancellationToken.None);
+        await listener.HandleAsync(
+            new NetworkResultReceivedEvent<string>(connection, "USER squiduser 0 * :Squid User"),
+            CancellationToken.None
+        );
+        await listener.HandleAsync(new NetworkResultReceivedEvent<string>(connection, "PASS wrong-secret"), CancellationToken.None);
+        await listener.HandleAsync(new NetworkResultReceivedEvent<string>(connection, "PASS server-secret"), CancellationToken.None);
+
+        var payloads = connection.SentPayloads.Select(Encoding.UTF8.GetString).ToArray();
+
+        Assert.Equal(":orionircd 464 * :Password incorrect\r\n", payloads[0]);
+        Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid\r\n", payloads[1]);
         Assert.Contains(eventBus.Events, eventData => eventData is IrcSessionRegisteredEvent);
     }
 

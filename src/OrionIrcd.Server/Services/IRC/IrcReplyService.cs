@@ -1,4 +1,5 @@
 using System.Text;
+using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Sessions;
 using OrionIrcd.Server.Interfaces.IRC.Replies;
@@ -9,17 +10,19 @@ namespace OrionIrcd.Server.Services.IRC;
 public sealed class IrcReplyService : IIrcReplyService
 {
     private const string Crlf = "\r\n";
+    private const string DefaultServerName = "irc.orionircd.net";
 
-    private readonly IIrcServerInfoService _serverInfoService;
+    private readonly OrionIrcdConfig _config;
     private readonly ISessionManagerService _sessionManagerService;
 
-    public IrcReplyService(ISessionManagerService sessionManagerService, IIrcServerInfoService serverInfoService)
+    public IrcReplyService(ISessionManagerService sessionManagerService, OrionIrcdConfig config)
     {
         _sessionManagerService = sessionManagerService;
-        _serverInfoService = serverInfoService;
+        _config = config;
     }
 
-    public string ServerName => _serverInfoService.ServerName;
+    public string ServerName
+        => string.IsNullOrWhiteSpace(_config.ServerName) ? DefaultServerName : _config.ServerName;
 
     public Task<bool> SendLineAsync(NetworkSession session, string line, CancellationToken cancellationToken)
     {

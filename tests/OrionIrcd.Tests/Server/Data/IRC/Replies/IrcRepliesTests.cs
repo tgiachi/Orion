@@ -61,6 +61,14 @@ public class IrcRepliesTests
     }
 
     [Fact]
+    public void PasswordMismatch_FormatsNumeric464()
+    {
+        var line = IrcReplies.PasswordMismatch().Format(CreateContext());
+
+        Assert.Equal(":orionircd 464 * :Password incorrect", line);
+    }
+
+    [Fact]
     public void Welcome_WithNickname_FormatsNumeric001()
     {
         var line = IrcReplies.Welcome("squid").Format(CreateContext());

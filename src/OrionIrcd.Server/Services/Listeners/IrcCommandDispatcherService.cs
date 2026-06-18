@@ -45,7 +45,7 @@ public sealed class IrcCommandDispatcherService : IIrcCommandDispatcherService
             )
         );
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        await Task.WhenAll(tasks);
     }
 
     private async Task DispatchListenerAsync(
@@ -56,7 +56,7 @@ public sealed class IrcCommandDispatcherService : IIrcCommandDispatcherService
     {
         try
         {
-            await invocation.HandleAsync(cancellationToken).ConfigureAwait(false);
+            await invocation.HandleAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

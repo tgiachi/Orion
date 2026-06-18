@@ -87,7 +87,7 @@ public sealed class NetworkServerService : IOrionIrcdService
                 foreach (var server in CreateServers(entry))
                 {
                     WireServerEvents(server);
-                    await server.StartAsync(cancellationToken).ConfigureAwait(false);
+                    await server.StartAsync(cancellationToken);
                     startedServers.Add(server);
 
                     _logger.Information(
@@ -107,7 +107,7 @@ public sealed class NetworkServerService : IOrionIrcdService
         {
             try
             {
-                await StopStartedServersAsync(startedServers, CancellationToken.None).ConfigureAwait(false);
+                await StopStartedServersAsync(startedServers, CancellationToken.None);
             }
             finally
             {
@@ -133,7 +133,7 @@ public sealed class NetworkServerService : IOrionIrcdService
             _servers.Clear();
         }
 
-        await StopStartedServersAsync(servers, cancellationToken).ConfigureAwait(false);
+        await StopStartedServersAsync(servers, cancellationToken);
     }
 
     private IEnumerable<INetworkServer> CreateServers(NetworkSectionEntry entry)
@@ -346,11 +346,10 @@ public sealed class NetworkServerService : IOrionIrcdService
         try
         {
             var result = await _resultProcessor.ProcessAsync(
-                                                   connection,
-                                                   data,
-                                                   cancellationToken
-                                               )
-                                               .ConfigureAwait(false);
+                connection,
+                data,
+                cancellationToken
+            );
 
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -395,11 +394,11 @@ public sealed class NetworkServerService : IOrionIrcdService
     {
         try
         {
-            await server.StopAsync(cancellationToken).ConfigureAwait(false);
+            await server.StopAsync(cancellationToken);
         }
         finally
         {
-            await server.DisposeAsync().ConfigureAwait(false);
+            await server.DisposeAsync();
         }
     }
 

@@ -58,6 +58,24 @@ public class BaseIrcCommandFactoryTests
     }
 
     [Fact]
+    public void CreateOrFallback_WithPassMessage_ReturnsBoundPassCommand()
+    {
+        var factory = CreateFactory();
+        var raw = new RawIrcMessage
+        {
+            Command = "PASS",
+            Params = ["server-secret"],
+            Raw = "PASS server-secret"
+        };
+
+        var command = Assert.IsType<PassCommand>(factory.CreateOrFallback(raw));
+
+        Assert.Equal("PASS", command.Code);
+        Assert.Equal("server-secret", command.Password);
+        Assert.Equal("PASS server-secret", command.Raw);
+    }
+
+    [Fact]
     public void CreateOrFallback_WithUserMessage_ReturnsBoundUserCommand()
     {
         var factory = CreateFactory();
@@ -99,6 +117,9 @@ public class BaseIrcCommandFactoryTests
         );
         registry.RegisterCommand<PingCommand>(
             (command, raw) => command.Token = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
+        );
+        registry.RegisterCommand<PassCommand>(
+            (command, raw) => command.Password = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
         );
         registry.RegisterCommand<PongCommand>(
             (command, raw) => command.Token = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
