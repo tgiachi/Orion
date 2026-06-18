@@ -24,20 +24,49 @@ public sealed class SessionManagerService : ISessionManagerService
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task<bool> CloseAsync(long sessionId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        return Task.CompletedTask;
+        if (!TryGetSession(sessionId, out var session) || session is null)
+        {
+            return false;
+        }
+
+        if (session.Status == NetworkSessionStatusType.Disconnected)
+        {
+            return false;
+        }
+
+        session.Status = NetworkSessionStatusType.Closing;
+
+        try
+        {
+            await session.Connection.CloseAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(exception, "Failed to close network session {SessionId}", sessionId);
+
+            throw;
+        }
+
+        return true;
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken)
+    public IReadOnlyList<NetworkSession> GetSessions()
+        => _sessions.Values.ToArray();
+
+    public NetworkSession RecordActivity(INetworkConnection connection, ReadOnlyMemory<byte> data)
     {
-        foreach (var session in GetSessions())
-        {
-            await CloseAsync(session.SessionId, cancellationToken).ConfigureAwait(false);
-            Unregister(session.Connection);
-        }
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var session = Register(connection);
+        session.LastActivityAtUtc = _timeProvider.GetUtcNow();
+        session.BytesReceived += data.Length;
+        _eventBus.Publish(new NetworkSessionDataReceivedEvent(session, data));
+
+        return session;
     }
 
     public NetworkSession Register(INetworkConnection connection)
@@ -67,40 +96,6 @@ public sealed class SessionManagerService : ISessionManagerService
         return session;
     }
 
-    public NetworkSession? Unregister(INetworkConnection connection)
-    {
-        ArgumentNullException.ThrowIfNull(connection);
-
-        if (!_sessions.TryRemove(connection.SessionId, out var session))
-        {
-            return null;
-        }
-
-        session.Status = NetworkSessionStatusType.Disconnected;
-        session.LastActivityAtUtc = _timeProvider.GetUtcNow();
-        _eventBus.Publish(new NetworkSessionDisconnectedEvent(session));
-
-        return session;
-    }
-
-    public NetworkSession RecordActivity(INetworkConnection connection, ReadOnlyMemory<byte> data)
-    {
-        ArgumentNullException.ThrowIfNull(connection);
-
-        var session = Register(connection);
-        session.LastActivityAtUtc = _timeProvider.GetUtcNow();
-        session.BytesReceived += data.Length;
-        _eventBus.Publish(new NetworkSessionDataReceivedEvent(session, data));
-
-        return session;
-    }
-
-    public bool TryGetSession(long sessionId, out NetworkSession? session)
-        => _sessions.TryGetValue(sessionId, out session);
-
-    public IReadOnlyList<NetworkSession> GetSessions()
-        => _sessions.Values.ToArray();
-
     public async Task<bool> SendAsync(long sessionId, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -118,33 +113,38 @@ public sealed class SessionManagerService : ISessionManagerService
         return true;
     }
 
-    public async Task<bool> CloseAsync(long sessionId, CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryGetSession(sessionId, out var session) || session is null)
+        return Task.CompletedTask;
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        foreach (var session in GetSessions())
         {
-            return false;
+            await CloseAsync(session.SessionId, cancellationToken).ConfigureAwait(false);
+            Unregister(session.Connection);
+        }
+    }
+
+    public bool TryGetSession(long sessionId, out NetworkSession? session)
+        => _sessions.TryGetValue(sessionId, out session);
+
+    public NetworkSession? Unregister(INetworkConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        if (!_sessions.TryRemove(connection.SessionId, out var session))
+        {
+            return null;
         }
 
-        if (session.Status == NetworkSessionStatusType.Disconnected)
-        {
-            return false;
-        }
+        session.Status = NetworkSessionStatusType.Disconnected;
+        session.LastActivityAtUtc = _timeProvider.GetUtcNow();
+        _eventBus.Publish(new NetworkSessionDisconnectedEvent(session));
 
-        session.Status = NetworkSessionStatusType.Closing;
-
-        try
-        {
-            await session.Connection.CloseAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception, "Failed to close network session {SessionId}", sessionId);
-
-            throw;
-        }
-
-        return true;
+        return session;
     }
 }

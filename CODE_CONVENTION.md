@@ -216,7 +216,8 @@ tests/OrionIrcd.Tests/Support/FakeSourcePlugin.cs    → namespace OrionIrcd.Tes
 - Include `CancellationToken` on I/O-bound public async methods.
 
 **Exception handling**
-- Use guard clauses (`ArgumentNullException.ThrowIfNull`, etc.).
+- Use guard clauses for external inputs and public API validation.
+- Do not use `ArgumentNullException.ThrowIfNull` for constructor dependencies resolved by DI; let the container enforce required services.
 - Do not swallow exceptions silently.
 
 **Collection exposure**

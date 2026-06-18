@@ -5,15 +5,15 @@ namespace OrionIrcd.Tests.IRC.Services;
 public class ParserStateTests
 {
     [Fact]
-    public void TryAppendData_WithData_AppendsAndExposesAccumulatedData()
+    public void RemoveProcessedBytes_WithCountGreaterThanLength_ClearsBuffer()
     {
         var state = new ParserState();
+        state.TryAppendData([1, 2, 3]);
 
-        var result = state.TryAppendData([1, 2, 3]);
+        state.RemoveProcessedBytes(4);
 
-        Assert.True(result);
-        Assert.Equal(3, state.Length);
-        Assert.Equal(new byte[] { 1, 2, 3 }, state.AccumulatedData.ToArray());
+        Assert.Equal(0, state.Length);
+        Assert.Empty(state.AccumulatedData.ToArray());
     }
 
     [Fact]
@@ -29,18 +29,6 @@ public class ParserStateTests
     }
 
     [Fact]
-    public void RemoveProcessedBytes_WithCountGreaterThanLength_ClearsBuffer()
-    {
-        var state = new ParserState();
-        state.TryAppendData([1, 2, 3]);
-
-        state.RemoveProcessedBytes(4);
-
-        Assert.Equal(0, state.Length);
-        Assert.Empty(state.AccumulatedData.ToArray());
-    }
-
-    [Fact]
     public void TryAppendData_WhenBufferWouldOverflow_ReturnsFalse()
     {
         var state = new ParserState();
@@ -52,5 +40,17 @@ public class ParserStateTests
         Assert.True(first);
         Assert.False(second);
         Assert.Equal(65536, state.Length);
+    }
+
+    [Fact]
+    public void TryAppendData_WithData_AppendsAndExposesAccumulatedData()
+    {
+        var state = new ParserState();
+
+        var result = state.TryAppendData([1, 2, 3]);
+
+        Assert.True(result);
+        Assert.Equal(3, state.Length);
+        Assert.Equal(new byte[] { 1, 2, 3 }, state.AccumulatedData.ToArray());
     }
 }

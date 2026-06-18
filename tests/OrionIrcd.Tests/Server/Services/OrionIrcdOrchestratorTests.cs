@@ -44,9 +44,7 @@ public class OrionIrcdOrchestratorTests
             {
                 await runTask.WaitAsync(TimeSpan.FromSeconds(1));
             }
-            catch (OperationCanceledException)
-            {
-            }
+            catch (OperationCanceledException) { }
         }
     }
 

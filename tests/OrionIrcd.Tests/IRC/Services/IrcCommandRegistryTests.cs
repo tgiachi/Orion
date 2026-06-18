@@ -7,6 +7,17 @@ namespace OrionIrcd.Tests.IRC.Services;
 public class IrcCommandRegistryTests
 {
     [Fact]
+    public void RegisterCommand_WithDuplicateCommand_ThrowsInvalidOperationException()
+    {
+        var registry = new IrcCommandRegistry();
+        registry.RegisterCommand<TestIrcCommand>();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => registry.RegisterCommand<TestIrcCommand>());
+
+        Assert.Equal("Command 'TEST' is already registered.", exception.Message);
+    }
+
+    [Fact]
     public void RegisterCommand_WithRegisteredCommand_CreatesCommandCaseInsensitively()
     {
         var registry = new IrcCommandRegistry();
@@ -16,17 +27,6 @@ public class IrcCommandRegistryTests
         var result = registry.TryCreate("test", out var command);
         Assert.True(result);
         Assert.IsType<TestIrcCommand>(command);
-    }
-
-    [Fact]
-    public void RegisterCommand_WithDuplicateCommand_ThrowsInvalidOperationException()
-    {
-        var registry = new IrcCommandRegistry();
-        registry.RegisterCommand<TestIrcCommand>();
-
-        var exception = Assert.Throws<InvalidOperationException>(() => registry.RegisterCommand<TestIrcCommand>());
-
-        Assert.Equal("Command 'TEST' is already registered.", exception.Message);
     }
 
     [Fact]

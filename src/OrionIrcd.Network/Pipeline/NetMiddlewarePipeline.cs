@@ -4,14 +4,14 @@ using OrionIrcd.Network.Interfaces.Middleware;
 namespace OrionIrcd.Network.Pipeline;
 
 /// <summary>
-///     Executes <see cref="INetMiddleware" /> components in registration order over a byte payload.
+/// Executes <see cref="INetMiddleware" /> components in registration order over a byte payload.
 /// </summary>
 /// <remarks>
-///     The pipeline is a byte transformer: each middleware sees a <see cref="ReadOnlyMemory{T}" />
-///     of bytes and produces a <see cref="ReadOnlyMemory{T}" /> of bytes. There is no concept of
-///     message, packet, or frame at this layer — protocol-specific framing must happen on top of
-///     the client's <c>OnDataReceived</c> output. Returning <see cref="ReadOnlyMemory{T}.Empty" />
-///     from a middleware drops the payload and stops the chain.
+/// The pipeline is a byte transformer: each middleware sees a <see cref="ReadOnlyMemory{T}" />
+/// of bytes and produces a <see cref="ReadOnlyMemory{T}" /> of bytes. There is no concept of
+/// message, packet, or frame at this layer — protocol-specific framing must happen on top of
+/// the client's <c>OnDataReceived</c> output. Returning <see cref="ReadOnlyMemory{T}.Empty" />
+/// from a middleware drops the payload and stops the chain.
 /// </remarks>
 public sealed class NetMiddlewarePipeline
 {
@@ -19,7 +19,7 @@ public sealed class NetMiddlewarePipeline
     private INetMiddleware[] _middlewares;
 
     /// <summary>
-    ///     Initializes the middleware pipeline.
+    /// Initializes the middleware pipeline.
     /// </summary>
     /// <param name="middlewares">Optional initial middleware sequence.</param>
     public NetMiddlewarePipeline(IEnumerable<INetMiddleware>? middlewares = null)
@@ -28,7 +28,7 @@ public sealed class NetMiddlewarePipeline
     }
 
     /// <summary>
-    ///     Adds a middleware component at the end of the execution chain.
+    /// Adds a middleware component at the end of the execution chain.
     /// </summary>
     /// <param name="middleware">Middleware to register.</param>
     public void AddMiddleware(INetMiddleware middleware)
@@ -40,7 +40,7 @@ public sealed class NetMiddlewarePipeline
     }
 
     /// <summary>
-    ///     Checks whether at least one middleware component of the specified type is registered.
+    /// Checks whether at least one middleware component of the specified type is registered.
     /// </summary>
     /// <typeparam name="TMiddleware">Middleware type to check.</typeparam>
     /// <returns><c>true</c> when a matching middleware is registered; otherwise <c>false</c>.</returns>
@@ -54,7 +54,7 @@ public sealed class NetMiddlewarePipeline
     }
 
     /// <summary>
-    ///     Processes the payload through all registered middleware components.
+    /// Processes the payload through all registered middleware components.
     /// </summary>
     /// <param name="client">Client associated with the payload, if available.</param>
     /// <param name="data">Incoming payload.</param>
@@ -90,7 +90,7 @@ public sealed class NetMiddlewarePipeline
     }
 
     /// <summary>
-    ///     Processes the outgoing payload through all registered middleware components.
+    /// Processes the outgoing payload through all registered middleware components.
     /// </summary>
     /// <param name="client">Client associated with the payload, if available.</param>
     /// <param name="data">Outgoing payload.</param>
@@ -126,7 +126,7 @@ public sealed class NetMiddlewarePipeline
     }
 
     /// <summary>
-    ///     Removes all middleware components of the specified type.
+    /// Removes all middleware components of the specified type.
     /// </summary>
     /// <typeparam name="TMiddleware">Middleware type to remove.</typeparam>
     /// <returns><c>true</c> when at least one middleware was removed; otherwise <c>false</c>.</returns>

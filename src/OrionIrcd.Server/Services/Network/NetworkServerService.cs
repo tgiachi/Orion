@@ -137,15 +137,13 @@ public sealed class NetworkServerService : IOrionIrcdService
     }
 
     private IEnumerable<INetworkServer> CreateServers(NetworkSectionEntry entry)
-    {
-        return entry.Type switch
+        => entry.Type switch
         {
             ServerType.TCP => CreateTcpServers(entry),
             ServerType.WebSocket => CreateWebSocketServers(entry),
             ServerType.UDP => CreateUdpServers(entry),
             _ => throw new NotSupportedException($"Network server type '{entry.Type}' is not supported yet.")
         };
-    }
 
     private IEnumerable<INetworkServer> CreateTcpServers(NetworkSectionEntry entry)
     {
@@ -163,9 +161,38 @@ public sealed class NetworkServerService : IOrionIrcdService
         foreach (var port in ports)
         {
             yield return new OrionTcpServer(
-                new IPEndPoint(ipAddress, port),
+                new(ipAddress, port),
                 new IrcLineFramer(),
                 tlsOptions: tlsOptions
+            );
+        }
+    }
+
+    private OrionTcpServerTlsOptions? CreateTcpTlsOptions(NetworkSectionEntry entry)
+    {
+        var certificate = LoadCertificate(entry);
+
+        return certificate is null ? null : new OrionTcpServerTlsOptions(certificate);
+    }
+
+    private IEnumerable<INetworkServer> CreateUdpServers(NetworkSectionEntry entry)
+    {
+        EnsureSupportedModeAndProtocol(entry);
+
+        if (entry.Protocol != ServerProtocolType.Plain)
+        {
+            throw new NotSupportedException($"UDP protocol '{entry.Protocol}' is not supported yet.");
+        }
+
+        var ipAddress = NetworkUtils.ParseIpAddress(entry.IpAddress);
+        var ports = NetworkUtils.ParsePorts(entry.Ports).Distinct();
+        var bindAllInterfaces = ipAddress.Equals(IPAddress.Any) || ipAddress.Equals(IPAddress.IPv6Any);
+
+        foreach (var port in ports)
+        {
+            yield return new OrionUdpServer(
+                new(ipAddress, port),
+                bindAllInterfaces
             );
         }
     }
@@ -186,32 +213,17 @@ public sealed class NetworkServerService : IOrionIrcdService
         foreach (var port in ports)
         {
             yield return new OrionWebSocketServer(
-                new IPEndPoint(ipAddress, port),
+                new(ipAddress, port),
                 tlsOptions
             );
         }
     }
 
-    private IEnumerable<INetworkServer> CreateUdpServers(NetworkSectionEntry entry)
+    private OrionWebSocketServerTlsOptions? CreateWebSocketTlsOptions(NetworkSectionEntry entry)
     {
-        EnsureSupportedModeAndProtocol(entry);
+        var certificate = LoadCertificate(entry);
 
-        if (entry.Protocol != ServerProtocolType.Plain)
-        {
-            throw new NotSupportedException($"UDP protocol '{entry.Protocol}' is not supported yet.");
-        }
-
-        var ipAddress = NetworkUtils.ParseIpAddress(entry.IpAddress);
-        var ports = NetworkUtils.ParsePorts(entry.Ports).Distinct();
-        var bindAllInterfaces = ipAddress.Equals(IPAddress.Any) || ipAddress.Equals(IPAddress.IPv6Any);
-
-        foreach (var port in ports)
-        {
-            yield return new OrionUdpServer(
-                new IPEndPoint(ipAddress, port),
-                bindAllInterfaces
-            );
-        }
+        return certificate is null ? null : new OrionWebSocketServerTlsOptions(certificate);
     }
 
     private static void EnsureSupportedModeAndProtocol(NetworkSectionEntry entry)
@@ -225,20 +237,6 @@ public sealed class NetworkServerService : IOrionIrcdService
         {
             throw new NotSupportedException($"Network protocol '{entry.Protocol}' is not supported yet.");
         }
-    }
-
-    private OrionTcpServerTlsOptions? CreateTcpTlsOptions(NetworkSectionEntry entry)
-    {
-        var certificate = LoadCertificate(entry);
-
-        return certificate is null ? null : new OrionTcpServerTlsOptions(certificate);
-    }
-
-    private OrionWebSocketServerTlsOptions? CreateWebSocketTlsOptions(NetworkSectionEntry entry)
-    {
-        var certificate = LoadCertificate(entry);
-
-        return certificate is null ? null : new OrionWebSocketServerTlsOptions(certificate);
     }
 
     private X509Certificate2? LoadCertificate(NetworkSectionEntry entry)
@@ -258,6 +256,122 @@ public sealed class NetworkServerService : IOrionIrcdService
         );
     }
 
+    private void OnTcpClientConnect(object? sender, OrionTcpClientEventArgs args)
+    {
+        _logger.Information(
+            "Client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+        _sessionManagerService?.Register(args.Client);
+    }
+
+    private void OnTcpClientDisconnect(object? sender, OrionTcpClientEventArgs args)
+    {
+        _logger.Information(
+            "Client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+        _sessionManagerService?.Unregister(args.Client);
+    }
+
+    private void OnTcpDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
+    {
+        _logger.Verbose(
+            "Client data received. SessionId={SessionId}, Bytes={Bytes}",
+            args.Client.SessionId,
+            args.Data.Length
+        );
+
+        _sessionManagerService?.RecordActivity(args.Client, args.Data);
+        QueueReceivedData(args.Client, args.Data);
+    }
+
+    private void OnTcpException(object? sender, OrionTcpExceptionEventArgs args)
+        => _logger.Error(args.Exception, "Network listener failed");
+
+    private void OnUdpException(object? sender, OrionTcpExceptionEventArgs args)
+        => _logger.Error(args.Exception, "UDP network listener failed");
+
+    private void OnWebSocketClientConnect(object? sender, OrionWebSocketClientEventArgs args)
+    {
+        _logger.Information(
+            "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+        _sessionManagerService?.Register(args.Client);
+    }
+
+    private void OnWebSocketClientDisconnect(object? sender, OrionWebSocketClientEventArgs args)
+    {
+        _logger.Information(
+            "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            args.Client.SessionId,
+            args.Client.RemoteEndPoint
+        );
+
+        _sessionManagerService?.Unregister(args.Client);
+    }
+
+    private void OnWebSocketDataReceived(object? sender, OrionWebSocketDataReceivedEventArgs args)
+    {
+        _logger.Verbose(
+            "WebSocket client data received. SessionId={SessionId}, Bytes={Bytes}",
+            args.Client.SessionId,
+            args.Data.Length
+        );
+
+        _sessionManagerService?.RecordActivity(args.Client, args.Data);
+        QueueReceivedData(args.Client, args.Data);
+    }
+
+    private void OnWebSocketException(object? sender, OrionWebSocketExceptionEventArgs args)
+        => _logger.Error(
+            args.Exception,
+            "WebSocket network listener failed. SessionId={SessionId}",
+            args.Client?.SessionId
+        );
+
+    private async Task ProcessReceivedDataAsync(
+        INetworkConnection connection,
+        ReadOnlyMemory<byte> data,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            var result = await _resultProcessor.ProcessAsync(
+                                                   connection,
+                                                   data,
+                                                   cancellationToken
+                                               )
+                                               .ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                return;
+            }
+
+            await _eventBus?.PublishAsync(new NetworkResultReceivedEvent<string>(connection, result), cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                exception,
+                "Network result processor failed. SessionId={SessionId}",
+                connection.SessionId
+            );
+        }
+    }
+
+    private void QueueReceivedData(INetworkConnection connection, ReadOnlyMemory<byte> data)
+        => _ = Task.Run(() => ProcessReceivedDataAsync(connection, data, CancellationToken.None));
+
     private string ResolveCertificatePath(string certificateFile)
     {
         if (string.IsNullOrWhiteSpace(certificateFile))
@@ -272,7 +386,9 @@ public sealed class NetworkServerService : IOrionIrcdService
             return resolvedCertificateFile;
         }
 
-        return _directoriesConfig is not null ? Path.Combine(_directoriesConfig[DirectoryType.Certs], resolvedCertificateFile) : Path.GetFullPath(resolvedCertificateFile);
+        return _directoriesConfig is not null
+                   ? Path.Combine(_directoriesConfig[DirectoryType.Certs], resolvedCertificateFile)
+                   : Path.GetFullPath(resolvedCertificateFile);
     }
 
     private static async Task StopServerAsync(INetworkServer server, CancellationToken cancellationToken)
@@ -325,132 +441,14 @@ public sealed class NetworkServerService : IOrionIrcdService
         server.OnException += OnTcpException;
     }
 
+    private void WireUdpServerEvents(OrionUdpServer server)
+        => server.OnException += OnUdpException;
+
     private void WireWebSocketServerEvents(OrionWebSocketServer server)
     {
         server.OnClientConnect += OnWebSocketClientConnect;
         server.OnClientDisconnect += OnWebSocketClientDisconnect;
         server.OnDataReceived += OnWebSocketDataReceived;
         server.OnException += OnWebSocketException;
-    }
-
-    private void WireUdpServerEvents(OrionUdpServer server)
-    {
-        server.OnException += OnUdpException;
-    }
-
-    private void OnTcpClientConnect(object? sender, OrionTcpClientEventArgs args)
-    {
-        _logger.Information(
-            "Client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            args.Client.SessionId,
-            args.Client.RemoteEndPoint
-        );
-
-        _sessionManagerService?.Register(args.Client);
-    }
-
-    private void OnTcpClientDisconnect(object? sender, OrionTcpClientEventArgs args)
-    {
-        _logger.Information(
-            "Client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            args.Client.SessionId,
-            args.Client.RemoteEndPoint
-        );
-
-        _sessionManagerService?.Unregister(args.Client);
-    }
-
-    private void OnTcpDataReceived(object? sender, OrionTcpDataReceivedEventArgs args)
-    {
-        _logger.Verbose(
-            "Client data received. SessionId={SessionId}, Bytes={Bytes}",
-            args.Client.SessionId,
-            args.Data.Length
-        );
-
-        _sessionManagerService?.RecordActivity(args.Client, args.Data);
-        QueueReceivedData(args.Client, args.Data);
-    }
-
-    private void OnTcpException(object? sender, OrionTcpExceptionEventArgs args)
-        => _logger.Error(args.Exception, "Network listener failed");
-
-    private void OnWebSocketClientConnect(object? sender, OrionWebSocketClientEventArgs args)
-    {
-        _logger.Information(
-            "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            args.Client.SessionId,
-            args.Client.RemoteEndPoint
-        );
-
-        _sessionManagerService?.Register(args.Client);
-    }
-
-    private void OnWebSocketClientDisconnect(object? sender, OrionWebSocketClientEventArgs args)
-    {
-        _logger.Information(
-            "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            args.Client.SessionId,
-            args.Client.RemoteEndPoint
-        );
-
-        _sessionManagerService?.Unregister(args.Client);
-    }
-
-    private void OnWebSocketDataReceived(object? sender, OrionWebSocketDataReceivedEventArgs args)
-    {
-        _logger.Verbose(
-            "WebSocket client data received. SessionId={SessionId}, Bytes={Bytes}",
-            args.Client.SessionId,
-            args.Data.Length
-        );
-
-        _sessionManagerService?.RecordActivity(args.Client, args.Data);
-        QueueReceivedData(args.Client, args.Data);
-    }
-
-    private void OnWebSocketException(object? sender, OrionWebSocketExceptionEventArgs args)
-        => _logger.Error(
-            args.Exception,
-            "WebSocket network listener failed. SessionId={SessionId}",
-            args.Client?.SessionId
-        );
-
-    private void OnUdpException(object? sender, OrionTcpExceptionEventArgs args)
-        => _logger.Error(args.Exception, "UDP network listener failed");
-
-    private void QueueReceivedData(INetworkConnection connection, ReadOnlyMemory<byte> data)
-        => _ = Task.Run(() => ProcessReceivedDataAsync(connection, data, CancellationToken.None));
-
-    private async Task ProcessReceivedDataAsync(
-        INetworkConnection connection,
-        ReadOnlyMemory<byte> data,
-        CancellationToken cancellationToken
-    )
-    {
-        try
-        {
-            var result = await _resultProcessor.ProcessAsync(
-                                                   connection,
-                                                   data,
-                                                   cancellationToken
-                                               )
-                                               .ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(result))
-            {
-                return;
-            }
-
-            await _eventBus?.PublishAsync(new NetworkResultReceivedEvent<string>(connection, result), cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(
-                exception,
-                "Network result processor failed. SessionId={SessionId}",
-                connection.SessionId
-            );
-        }
     }
 }

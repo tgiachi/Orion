@@ -18,7 +18,8 @@ public class LoginKeysTests
         for (var t = 0; t < threadCount; t++)
         {
             var threadIndex = t;
-            threads[t] = new Thread(() =>
+            threads[t] = new(
+                () =>
                 {
                     try
                     {

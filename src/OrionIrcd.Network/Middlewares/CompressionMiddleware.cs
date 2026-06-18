@@ -5,9 +5,9 @@ using OrionIrcd.Network.Interfaces.Middleware;
 namespace OrionIrcd.Network.Middlewares;
 
 /// <summary>
-///     Compresses every outgoing payload with the UO Huffman scheme. Inbound payloads pass through
-///     untouched (UO transport compression is server-to-client only). Once enabled the client
-///     decompresses everything, so even tiny payloads must be compressed.
+/// Compresses every outgoing payload with the UO Huffman scheme. Inbound payloads pass through
+/// untouched (UO transport compression is server-to-client only). Once enabled the client
+/// decompresses everything, so even tiny payloads must be compressed.
 /// </summary>
 public sealed class CompressionMiddleware : INetMiddleware
 {

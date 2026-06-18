@@ -8,13 +8,13 @@ namespace OrionIrcd.Core.Yaml;
 public static class YamlUtils
 {
     private static readonly ISerializer Serializer = new SerializerBuilder()
-        .DisableAliases()
-        .WithIndentedSequences()
-        .Build();
+                                                     .DisableAliases()
+                                                     .WithIndentedSequences()
+                                                     .Build();
 
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
-        .IgnoreUnmatchedProperties()
-        .Build();
+                                                         .IgnoreUnmatchedProperties()
+                                                         .Build();
 
     /// <summary>
     /// Deserializes YAML text using reflection-based metadata.

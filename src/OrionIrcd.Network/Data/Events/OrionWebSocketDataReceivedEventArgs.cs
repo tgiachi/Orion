@@ -3,17 +3,17 @@ using OrionIrcd.Network.Client;
 namespace OrionIrcd.Network.Data.Events;
 
 /// <summary>
-///     Event payload containing data received from a WebSocket network client.
+/// Event payload containing data received from a WebSocket network client.
 /// </summary>
 public sealed class OrionWebSocketDataReceivedEventArgs : EventArgs
 {
     /// <summary>
-    ///     Source client for the data payload.
+    /// Source client for the data payload.
     /// </summary>
     public OrionWebSocketClient Client { get; }
 
     /// <summary>
-    ///     Received data payload.
+    /// Received data payload.
     /// </summary>
     public ReadOnlyMemory<byte> Data { get; }
 

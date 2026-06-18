@@ -53,15 +53,61 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
-    public async Task StopAsync_AfterStart_StopsAndClearsListeners()
+    public async Task StartAsync_ReceivesBlankLine_DoesNotPublishProcessedStringResult()
     {
-        var service = new NetworkServerService(CreateNetworkConfig("0"));
+        var eventBus = new RecordingEventBus();
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus
+        );
 
         await service.StartAsync(CancellationToken.None);
-        await service.StopAsync(CancellationToken.None);
 
-        Assert.False(service.IsRunning);
-        Assert.Equal(0, service.ListenerCount);
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+            await client.GetStream().WriteAsync("\r\n"u8.ToArray());
+
+            await Task.Delay(200);
+
+            Assert.Empty(eventBus.Events);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_ReceivesIrcLine_PublishesProcessedStringResult()
+    {
+        var eventBus = new RecordingEventBus();
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
+
+            var publishedEvent =
+                await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(TimeSpan.FromSeconds(5));
+
+            Assert.Equal("NICK squid", publishedEvent.Result);
+            Assert.NotNull(publishedEvent.Connection);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
     }
 
     [Fact]
@@ -105,19 +151,99 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
-    public async Task StartAsync_WebSocketEntry_StartsListener()
+    public async Task StartAsync_SslWebSocketEntry_ReceivesIrcLine_PublishesProcessedStringResult()
     {
+        using var temporaryRoot = new TemporaryDirectory();
+        var directoriesConfig = new DirectoriesConfig(temporaryRoot.Path, Enum.GetNames<DirectoryType>());
+        const string password = "password";
+        var certificateFileName = "server.pfx";
+        var expectedThumbprint = WriteCertificate(
+            Path.Combine(directoriesConfig[DirectoryType.Certs], certificateFileName),
+            password
+        );
+        var eventBus = new RecordingEventBus();
         var config = CreateNetworkConfig("0");
+        config.SSLCertFile = certificateFileName;
+        config.SSLCertPassword = password;
+        config.Entries[0].Protocol = ServerProtocolType.SSL;
         config.Entries[0].Type = ServerType.WebSocket;
-        var service = new NetworkServerService(config);
+        var service = new NetworkServerService(
+            config,
+            directoriesConfig,
+            new StringProcessor(),
+            eventBus
+        );
 
         await service.StartAsync(CancellationToken.None);
 
         try
         {
-            Assert.True(service.IsRunning);
-            Assert.Equal(1, service.ListenerCount);
-            Assert.True(service.ListeningPorts.Single() > 0);
+            using var client = new ClientWebSocket();
+            client.Options.RemoteCertificateValidationCallback = (_, serverCertificate, _, _) =>
+                                                                     string.Equals(
+                                                                         expectedThumbprint,
+                                                                         serverCertificate?.GetCertHashString(),
+                                                                         StringComparison.OrdinalIgnoreCase
+                                                                     );
+            await client.ConnectAsync(
+                new($"wss://127.0.0.1:{service.ListeningPorts.Single()}/"),
+                CancellationToken.None
+            );
+            await client.SendAsync(
+                "CAP LS 302\r\n"u8.ToArray(),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None
+            );
+
+            var publishedEvent =
+                await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(TimeSpan.FromSeconds(5));
+
+            Assert.Equal("CAP LS 302", publishedEvent.Result);
+            Assert.NotNull(publishedEvent.Connection);
+
+            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_TcpClientLifecycle_PublishesSessionEvents()
+    {
+        var eventBus = new RecordingEventBus();
+        var sessionManager = new SessionManagerService(eventBus, TimeProvider.System);
+        var service = new NetworkServerService(
+            CreateNetworkConfig("0"),
+            resultProcessor: new StringProcessor(),
+            eventBus: eventBus,
+            sessionManagerService: sessionManager
+        );
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
+
+            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(TimeSpan.FromSeconds(5));
+
+            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
+
+            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(TimeSpan.FromSeconds(5));
+
+            client.Close();
+
+            var disconnectedEvent =
+                await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(TimeSpan.FromSeconds(5));
+
+            Assert.Equal(connectedEvent.Session.SessionId, dataEvent.Session.SessionId);
+            Assert.Equal(connectedEvent.Session.SessionId, disconnectedEvent.Session.SessionId);
+            Assert.Equal("NICK squid\r\n"u8.Length, dataEvent.Session.BytesReceived);
+            Assert.Equal(NetworkSessionStatusType.Disconnected, disconnectedEvent.Session.Status);
         }
         finally
         {
@@ -161,43 +287,14 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
-    public async Task StartAsync_ReceivesIrcLine_PublishesProcessedStringResult()
-    {
-        var eventBus = new RecordingEventBus();
-        var service = new NetworkServerService(
-            CreateNetworkConfig("0"),
-            resultProcessor: new StringProcessor(),
-            eventBus: eventBus
-        );
-
-        await service.StartAsync(CancellationToken.None);
-
-        try
-        {
-            using var client = new TcpClient();
-            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
-            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
-
-            var publishedEvent = await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(
-                TimeSpan.FromSeconds(5)
-            );
-
-            Assert.Equal("NICK squid", publishedEvent.Result);
-            Assert.NotNull(publishedEvent.Connection);
-        }
-        finally
-        {
-            await service.StopAsync(CancellationToken.None);
-        }
-    }
-
-    [Fact]
-    public async Task StartAsync_TcpClientLifecycle_PublishesSessionEvents()
+    public async Task StartAsync_WebSocketClientLifecycle_PublishesSessionEvents()
     {
         var eventBus = new RecordingEventBus();
         var sessionManager = new SessionManagerService(eventBus, TimeProvider.System);
+        var config = CreateNetworkConfig("0");
+        config.Entries[0].Type = ServerType.WebSocket;
         var service = new NetworkServerService(
-            CreateNetworkConfig("0"),
+            config,
             resultProcessor: new StringProcessor(),
             eventBus: eventBus,
             sessionManagerService: sessionManager
@@ -207,24 +304,27 @@ public class NetworkServerServiceTests
 
         try
         {
-            using var client = new TcpClient();
-            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
-
-            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(
-                TimeSpan.FromSeconds(5)
+            using var client = new ClientWebSocket();
+            await client.ConnectAsync(
+                new($"ws://127.0.0.1:{service.ListeningPorts.Single()}/"),
+                CancellationToken.None
             );
 
-            await client.GetStream().WriteAsync("NICK squid\r\n"u8.ToArray());
+            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(TimeSpan.FromSeconds(5));
 
-            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(
-                TimeSpan.FromSeconds(5)
+            await client.SendAsync(
+                "NICK squid\r\n"u8.ToArray(),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None
             );
 
-            client.Close();
+            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(TimeSpan.FromSeconds(5));
 
-            var disconnectedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(
-                TimeSpan.FromSeconds(5)
-            );
+            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+
+            var disconnectedEvent =
+                await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(TimeSpan.FromSeconds(5));
 
             Assert.Equal(connectedEvent.Session.SessionId, dataEvent.Session.SessionId);
             Assert.Equal(connectedEvent.Session.SessionId, disconnectedEvent.Session.SessionId);
@@ -255,7 +355,7 @@ public class NetworkServerServiceTests
         {
             using var client = new ClientWebSocket();
             await client.ConnectAsync(
-                new Uri($"ws://127.0.0.1:{service.ListeningPorts.Single()}/"),
+                new($"ws://127.0.0.1:{service.ListeningPorts.Single()}/"),
                 CancellationToken.None
             );
             await client.SendAsync(
@@ -265,9 +365,8 @@ public class NetworkServerServiceTests
                 CancellationToken.None
             );
 
-            var publishedEvent = await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(
-                TimeSpan.FromSeconds(5)
-            );
+            var publishedEvent =
+                await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(TimeSpan.FromSeconds(5));
 
             Assert.Equal("NICK squid", publishedEvent.Result);
             Assert.NotNull(publishedEvent.Connection);
@@ -281,54 +380,19 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
-    public async Task StartAsync_WebSocketClientLifecycle_PublishesSessionEvents()
+    public async Task StartAsync_WebSocketEntry_StartsListener()
     {
-        var eventBus = new RecordingEventBus();
-        var sessionManager = new SessionManagerService(eventBus, TimeProvider.System);
         var config = CreateNetworkConfig("0");
         config.Entries[0].Type = ServerType.WebSocket;
-        var service = new NetworkServerService(
-            config,
-            resultProcessor: new StringProcessor(),
-            eventBus: eventBus,
-            sessionManagerService: sessionManager
-        );
+        var service = new NetworkServerService(config);
 
         await service.StartAsync(CancellationToken.None);
 
         try
         {
-            using var client = new ClientWebSocket();
-            await client.ConnectAsync(
-                new Uri($"ws://127.0.0.1:{service.ListeningPorts.Single()}/"),
-                CancellationToken.None
-            );
-
-            var connectedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(
-                TimeSpan.FromSeconds(5)
-            );
-
-            await client.SendAsync(
-                "NICK squid\r\n"u8.ToArray(),
-                WebSocketMessageType.Text,
-                true,
-                CancellationToken.None
-            );
-
-            var dataEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(
-                TimeSpan.FromSeconds(5)
-            );
-
-            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
-
-            var disconnectedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(
-                TimeSpan.FromSeconds(5)
-            );
-
-            Assert.Equal(connectedEvent.Session.SessionId, dataEvent.Session.SessionId);
-            Assert.Equal(connectedEvent.Session.SessionId, disconnectedEvent.Session.SessionId);
-            Assert.Equal("NICK squid\r\n"u8.Length, dataEvent.Session.BytesReceived);
-            Assert.Equal(NetworkSessionStatusType.Disconnected, disconnectedEvent.Session.Status);
+            Assert.True(service.IsRunning);
+            Assert.Equal(1, service.ListenerCount);
+            Assert.True(service.ListeningPorts.Single() > 0);
         }
         finally
         {
@@ -337,92 +401,15 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
-    public async Task StartAsync_SslWebSocketEntry_ReceivesIrcLine_PublishesProcessedStringResult()
+    public async Task StopAsync_AfterStart_StopsAndClearsListeners()
     {
-        using var temporaryRoot = new TemporaryDirectory();
-        var directoriesConfig = new DirectoriesConfig(temporaryRoot.Path, Enum.GetNames<DirectoryType>());
-        const string password = "password";
-        var certificateFileName = "server.pfx";
-        var expectedThumbprint = WriteCertificate(
-            Path.Combine(directoriesConfig[DirectoryType.Certs], certificateFileName),
-            password
-        );
-        var eventBus = new RecordingEventBus();
-        var config = CreateNetworkConfig("0");
-        config.SSLCertFile = certificateFileName;
-        config.SSLCertPassword = password;
-        config.Entries[0].Protocol = ServerProtocolType.SSL;
-        config.Entries[0].Type = ServerType.WebSocket;
-        var service = new NetworkServerService(
-            config,
-            directoriesConfig,
-            resultProcessor: new StringProcessor(),
-            eventBus: eventBus
-        );
+        var service = new NetworkServerService(CreateNetworkConfig("0"));
 
         await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
 
-        try
-        {
-            using var client = new ClientWebSocket();
-            client.Options.RemoteCertificateValidationCallback = (_, serverCertificate, _, _) =>
-                string.Equals(
-                    expectedThumbprint,
-                    serverCertificate?.GetCertHashString(),
-                    StringComparison.OrdinalIgnoreCase
-                );
-            await client.ConnectAsync(
-                new Uri($"wss://127.0.0.1:{service.ListeningPorts.Single()}/"),
-                CancellationToken.None
-            );
-            await client.SendAsync(
-                "CAP LS 302\r\n"u8.ToArray(),
-                WebSocketMessageType.Text,
-                true,
-                CancellationToken.None
-            );
-
-            var publishedEvent = await eventBus.WaitForEventAsync<NetworkResultReceivedEvent<string>>(
-                TimeSpan.FromSeconds(5)
-            );
-
-            Assert.Equal("CAP LS 302", publishedEvent.Result);
-            Assert.NotNull(publishedEvent.Connection);
-
-            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
-        }
-        finally
-        {
-            await service.StopAsync(CancellationToken.None);
-        }
-    }
-
-    [Fact]
-    public async Task StartAsync_ReceivesBlankLine_DoesNotPublishProcessedStringResult()
-    {
-        var eventBus = new RecordingEventBus();
-        var service = new NetworkServerService(
-            CreateNetworkConfig("0"),
-            resultProcessor: new StringProcessor(),
-            eventBus: eventBus
-        );
-
-        await service.StartAsync(CancellationToken.None);
-
-        try
-        {
-            using var client = new TcpClient();
-            await client.ConnectAsync(IPAddress.Loopback, service.ListeningPorts.Single());
-            await client.GetStream().WriteAsync("\r\n"u8.ToArray());
-
-            await Task.Delay(200);
-
-            Assert.Empty(eventBus.Events);
-        }
-        finally
-        {
-            await service.StopAsync(CancellationToken.None);
-        }
+        Assert.False(service.IsRunning);
+        Assert.Equal(0, service.ListenerCount);
     }
 
     private static NetworkConfigSection CreateNetworkConfig(string ports)

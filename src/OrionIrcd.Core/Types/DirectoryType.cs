@@ -18,11 +18,10 @@ public enum DirectoryType
     /// <summary>
     /// Where certs lives
     /// </summary>
-
     Certs,
 
     /// <summary>
     /// Future Db
     /// </summary>
-    Data,
+    Data
 }

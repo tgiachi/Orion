@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 namespace OrionIrcd.Network.Encryption;
 
 /// <summary>
-///     Represents login encryption keys derived from the client version.
+/// Represents login encryption keys derived from the client version.
 /// </summary>
 public readonly struct LoginKeys
 {
@@ -20,31 +20,29 @@ public readonly struct LoginKeys
     }
 
     /// <summary>
-    ///     Gets the first login key.
+    /// Gets the first login key.
     /// </summary>
     public uint Key1 { get; }
 
     /// <summary>
-    ///     Gets the second login key.
+    /// Gets the second login key.
     /// </summary>
     public uint Key2 { get; }
 
     /// <summary>
-    ///     Gets the precomputed legacy key list for pre-6.0.5 clients.
+    /// Gets the precomputed legacy key list for pre-6.0.5 clients.
     /// </summary>
     public static ReadOnlySpan<LoginKeys> LegacyKeys => _legacyKeys.Value;
 
     /// <summary>
-    ///     Computes or retrieves login keys for a client version.
+    /// Computes or retrieves login keys for a client version.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static LoginKeys GetKeys(int major, int minor, int revision)
-    {
-        return _cache.GetOrAdd(
+        => _cache.GetOrAdd(
             (major, minor, revision),
             static key => ComputeKeys((uint)key.Major, (uint)key.Minor, (uint)key.Revision)
         );
-    }
 
     private static LoginKeys[] BuildLegacyKeys()
     {
@@ -82,6 +80,6 @@ public readonly struct LoginKeys
         key2 ^= (revision * 7) << 18;
         key2 ^= 0xA31D527F;
 
-        return new LoginKeys(key1, key2);
+        return new(key1, key2);
     }
 }

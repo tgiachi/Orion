@@ -3,13 +3,13 @@ using System.Buffers;
 namespace OrionIrcd.Network.Compression;
 
 /// <summary>
-///     Handles outgoing packet compression for the network using the Ultima Online
-///     Huffman compression scheme. The decompression tree is built once on first use.
+/// Handles outgoing packet compression for the network using the Ultima Online
+/// Huffman compression scheme. The decompression tree is built once on first use.
 /// </summary>
 public static class NetworkCompression
 {
     /// <summary>
-    ///     UO packets may not exceed 64kb in length.
+    /// UO packets may not exceed 64kb in length.
     /// </summary>
     public const int BufferSize = 0x10000;
 
@@ -66,8 +66,18 @@ public static class NetworkCompression
     private static readonly Dictionary<int, TreeNode> _decompressionTree = BuildDecompressionTree();
 
     /// <summary>
-    ///     Calculates the maximum size needed for the compressed output buffer.
-    ///     Returns 0 if the input is too large to fit within the UO packet limit.
+    /// Tree node for huffman decompression.
+    /// </summary>
+    private struct TreeNode
+    {
+        public bool IsLeaf;
+        public int Value;
+        public int NextPosition;
+    }
+
+    /// <summary>
+    /// Calculates the maximum size needed for the compressed output buffer.
+    /// Returns 0 if the input is too large to fit within the UO packet limit.
     /// </summary>
     public static int CalculateMaxCompressedSize(int inputLength)
     {
@@ -88,7 +98,7 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Compresses input data using the Huffman compression algorithm.
+    /// Compresses input data using the Huffman compression algorithm.
     /// </summary>
     /// <returns>Number of bytes written to the output buffer, or 0 if compression failed.</returns>
     public static int Compress(ReadOnlySpan<byte> input, Span<byte> output)
@@ -149,7 +159,7 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Compresses input data and returns the result as a new <see cref="Memory{T}" /> of bytes.
+    /// Compresses input data and returns the result as a new <see cref="Memory{T}" /> of bytes.
     /// </summary>
     public static Memory<byte> CompressToMemory(ReadOnlyMemory<byte> input)
     {
@@ -173,11 +183,11 @@ public static class NetworkCompression
             return Memory<byte>.Empty;
         }
 
-        return new Memory<byte>(outputBuffer, 0, compressedLength);
+        return new(outputBuffer, 0, compressedLength);
     }
 
     /// <summary>
-    ///     Decompresses Huffman-compressed data using the shared decompression tree.
+    /// Decompresses Huffman-compressed data using the shared decompression tree.
     /// </summary>
     /// <returns>Number of bytes written to the output buffer, or 0 if decompression failed.</returns>
     public static int Decompress(ReadOnlySpan<byte> input, Span<byte> output)
@@ -239,7 +249,7 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Decompresses data and returns the result as a new <see cref="Memory{T}" /> of bytes.
+    /// Decompresses data and returns the result as a new <see cref="Memory{T}" /> of bytes.
     /// </summary>
     public static Memory<byte> DecompressToMemory(ReadOnlyMemory<byte> input, int maxOutputSize = BufferSize)
     {
@@ -256,12 +266,12 @@ public static class NetworkCompression
             return Memory<byte>.Empty;
         }
 
-        return new Memory<byte>(outputBuffer, 0, decompressedLength);
+        return new(outputBuffer, 0, decompressedLength);
     }
 
     /// <summary>
-    ///     Processes incoming data with an explicit compression flag.
-    ///     Use this when the protocol indicates whether the payload is compressed.
+    /// Processes incoming data with an explicit compression flag.
+    /// Use this when the protocol indicates whether the payload is compressed.
     /// </summary>
     /// <returns>(halt, consumedFromOrigin) tuple. Halt is true when decompression failed.</returns>
     public static (bool halt, int consumedFromOrigin) ProcessReceive(
@@ -304,7 +314,7 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Processes outgoing data, compressing it when worthwhile.
+    /// Processes outgoing data, compressing it when worthwhile.
     /// </summary>
     public static void ProcessSend(ref ReadOnlyMemory<byte> input, out ReadOnlyMemory<byte> output)
     {
@@ -344,15 +354,13 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Returns true when the input is large enough to make compression worthwhile.
+    /// Returns true when the input is large enough to make compression worthwhile.
     /// </summary>
     public static bool ShouldCompress(int inputLength)
-    {
-        return inputLength >= MinCompressionThreshold && inputLength <= DefiniteOverflow;
-    }
+        => inputLength >= MinCompressionThreshold && inputLength <= DefiniteOverflow;
 
     /// <summary>
-    ///     Attempts to compress input data into the provided buffer.
+    /// Attempts to compress input data into the provided buffer.
     /// </summary>
     public static bool TryCompress(ReadOnlyMemory<byte> input, Span<byte> buffer, out Memory<byte> compressed)
     {
@@ -379,7 +387,7 @@ public static class NetworkCompression
     }
 
     /// <summary>
-    ///     Attempts to decompress data into the provided buffer.
+    /// Attempts to decompress data into the provided buffer.
     /// </summary>
     public static bool TryDecompress(ReadOnlyMemory<byte> input, Span<byte> buffer, out Memory<byte> decompressed)
     {
@@ -429,13 +437,13 @@ public static class NetworkCompression
 
                 if (bit == 0)
                 {
-                    tree[key] = new TreeNode { IsLeaf = true, Value = byteValue };
+                    tree[key] = new() { IsLeaf = true, Value = byteValue };
                 }
                 else
                 {
                     if (!tree.TryGetValue(key, out var node) || node.IsLeaf)
                     {
-                        tree[key] = new TreeNode { IsLeaf = false, NextPosition = nextPosition++ };
+                        tree[key] = new() { IsLeaf = false, NextPosition = nextPosition++ };
                     }
 
                     position = tree[key].NextPosition;
@@ -444,18 +452,8 @@ public static class NetworkCompression
         }
 
         // Terminal code (256) marks end-of-stream.
-        tree[0x200] = new TreeNode { IsLeaf = true, Value = 256 };
+        tree[0x200] = new() { IsLeaf = true, Value = 256 };
 
         return tree;
-    }
-
-    /// <summary>
-    ///     Tree node for huffman decompression.
-    /// </summary>
-    private struct TreeNode
-    {
-        public bool IsLeaf;
-        public int Value;
-        public int NextPosition;
     }
 }

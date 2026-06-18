@@ -29,25 +29,11 @@ public class RawIrcMessageTests
     }
 
     [Fact]
-    public void ToString_WithTrailingOnly_ReturnsSingleSeparatorSpace()
-    {
-        var message = new RawIrcMessage
-        {
-            Command = "PING",
-            Trailing = "server"
-        };
-
-        var result = message.ToString();
-
-        Assert.Equal("PING :server", result);
-    }
-
-    [Fact]
     public void ToString_WithPrefixParamsAndTrailing_ReturnsIrcLine()
     {
         var message = new RawIrcMessage
         {
-            Prefix = new IrcMessagePrefix
+            Prefix = new()
             {
                 Nick = "nick",
                 User = "user",
@@ -61,5 +47,19 @@ public class RawIrcMessageTests
         var result = message.ToString();
 
         Assert.Equal(":nick!user@host PRIVMSG #orion :hello world", result);
+    }
+
+    [Fact]
+    public void ToString_WithTrailingOnly_ReturnsSingleSeparatorSpace()
+    {
+        var message = new RawIrcMessage
+        {
+            Command = "PING",
+            Trailing = "server"
+        };
+
+        var result = message.ToString();
+
+        Assert.Equal("PING :server", result);
     }
 }

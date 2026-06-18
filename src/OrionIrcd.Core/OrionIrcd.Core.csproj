@@ -8,13 +8,13 @@
 
 
     <ItemGroup>
-        <PackageReference Include="DryIoc.dll" Version="5.4.3" />
-        <PackageReference Include="Serilog" Version="4.3.1" />
+        <PackageReference Include="DryIoc.dll" Version="5.4.3"/>
+        <PackageReference Include="Serilog" Version="4.3.1"/>
         <PackageReference Update="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.301">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="YamlDotNet" Version="18.0.0" />
+        <PackageReference Include="YamlDotNet" Version="18.0.0"/>
     </ItemGroup>
 
 

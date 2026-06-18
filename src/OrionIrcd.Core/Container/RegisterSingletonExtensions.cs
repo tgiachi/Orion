@@ -30,7 +30,9 @@ public static class RegisterSingletonExtensions
                 )
             );
 
-            container.AddToRegisterTypedList(new ServiceRegistrationObject(typeof(TService), typeof(TImplementation), priority));
+            container.AddToRegisterTypedList(
+                new ServiceRegistrationObject(typeof(TService), typeof(TImplementation), priority)
+            );
 
             return container;
         }

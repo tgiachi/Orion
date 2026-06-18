@@ -6,6 +6,70 @@ namespace OrionIrcd.Tests.Network.Pipeline;
 
 public class NetMiddlewarePipelineTests
 {
+    private sealed class AppendMiddleware : INetMiddleware
+    {
+        private readonly byte _value;
+
+        public AppendMiddleware(byte value)
+        {
+            _value = value;
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
+            OrionTcpClient? client,
+            ReadOnlyMemory<byte> data,
+            CancellationToken cancellationToken = default
+        )
+        {
+            CallCount++;
+            var output = new byte[data.Length + 1];
+            data.Span.CopyTo(output);
+            output[^1] = _value;
+
+            return ValueTask.FromResult<ReadOnlyMemory<byte>>(output);
+        }
+    }
+
+    private sealed class DropMiddleware : INetMiddleware
+    {
+        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
+            OrionTcpClient? client,
+            ReadOnlyMemory<byte> data,
+            CancellationToken cancellationToken = default
+        )
+            => ValueTask.FromResult(ReadOnlyMemory<byte>.Empty);
+    }
+
+    private sealed class DirectionAwareMiddleware : INetMiddleware
+    {
+        public int ReceiveCalls { get; private set; }
+        public int SendCalls { get; private set; }
+
+        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
+            OrionTcpClient? client,
+            ReadOnlyMemory<byte> data,
+            CancellationToken cancellationToken = default
+        )
+        {
+            ReceiveCalls++;
+
+            return ValueTask.FromResult(data);
+        }
+
+        public ValueTask<ReadOnlyMemory<byte>> ProcessSendAsync(
+            OrionTcpClient? client,
+            ReadOnlyMemory<byte> data,
+            CancellationToken cancellationToken = default
+        )
+        {
+            SendCalls++;
+
+            return ValueTask.FromResult(data);
+        }
+    }
+
     [Fact]
     public void ContainsMiddleware_AfterAdd_ReturnsTrue()
     {
@@ -87,71 +151,5 @@ public class NetMiddlewarePipelineTests
     {
         var pipeline = new NetMiddlewarePipeline();
         Assert.False(pipeline.RemoveMiddleware<AppendMiddleware>());
-    }
-
-    private sealed class AppendMiddleware : INetMiddleware
-    {
-        private readonly byte _value;
-
-        public AppendMiddleware(byte value)
-        {
-            _value = value;
-        }
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
-            OrionTcpClient? client,
-            ReadOnlyMemory<byte> data,
-            CancellationToken cancellationToken = default
-        )
-        {
-            CallCount++;
-            var output = new byte[data.Length + 1];
-            data.Span.CopyTo(output);
-            output[^1] = _value;
-
-            return ValueTask.FromResult<ReadOnlyMemory<byte>>(output);
-        }
-    }
-
-    private sealed class DropMiddleware : INetMiddleware
-    {
-        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
-            OrionTcpClient? client,
-            ReadOnlyMemory<byte> data,
-            CancellationToken cancellationToken = default
-        )
-        {
-            return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty);
-        }
-    }
-
-    private sealed class DirectionAwareMiddleware : INetMiddleware
-    {
-        public int ReceiveCalls { get; private set; }
-        public int SendCalls { get; private set; }
-
-        public ValueTask<ReadOnlyMemory<byte>> ProcessAsync(
-            OrionTcpClient? client,
-            ReadOnlyMemory<byte> data,
-            CancellationToken cancellationToken = default
-        )
-        {
-            ReceiveCalls++;
-
-            return ValueTask.FromResult(data);
-        }
-
-        public ValueTask<ReadOnlyMemory<byte>> ProcessSendAsync(
-            OrionTcpClient? client,
-            ReadOnlyMemory<byte> data,
-            CancellationToken cancellationToken = default
-        )
-        {
-            SendCalls++;
-
-            return ValueTask.FromResult(data);
-        }
     }
 }

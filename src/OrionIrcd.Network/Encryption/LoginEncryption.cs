@@ -3,7 +3,7 @@ using OrionIrcd.Network.Interfaces.Encryption;
 namespace OrionIrcd.Network.Encryption;
 
 /// <summary>
-///     Implements login packet encryption for account login traffic.
+/// Implements login packet encryption for account login traffic.
 /// </summary>
 public sealed class LoginEncryption : IClientEncryption
 {
@@ -50,9 +50,7 @@ public sealed class LoginEncryption : IClientEncryption
     }
 
     public void ServerEncrypt(Span<byte> buffer)
-    {
-        _ = buffer;
-    }
+        => _ = buffer;
 
     public static bool TryDecrypt(
         int? major,
@@ -109,7 +107,7 @@ public sealed class LoginEncryption : IClientEncryption
             return false;
         }
 
-        encryption = new LoginEncryption(seed, keys);
+        encryption = new(seed, keys);
 
         return true;
     }

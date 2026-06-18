@@ -56,7 +56,7 @@ public ref struct SpanWriter : IDisposable
     }
 
     /// <summary>
-    ///     Represents SpanOwner.
+    /// Represents SpanOwner.
     /// </summary>
     public struct SpanOwner : IDisposable
     {
@@ -96,6 +96,18 @@ public ref struct SpanWriter : IDisposable
         Position += count;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose()
+    {
+        var toReturn = _arrayToReturnToPool;
+        this = default;
+
+        if (toReturn is not null)
+        {
+            ArrayPool<byte>.Shared.Return(toReturn);
+        }
+    }
+
     public void EnsureCapacity(int capacity)
     {
         if (capacity > _buffer.Length)
@@ -110,9 +122,7 @@ public ref struct SpanWriter : IDisposable
     }
 
     public ref byte GetPinnableReference()
-    {
-        return ref MemoryMarshal.GetReference(_buffer);
-    }
+        => ref MemoryMarshal.GetReference(_buffer);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Grow(int additionalCapacity)
@@ -139,8 +149,8 @@ public ref struct SpanWriter : IDisposable
             origin switch
             {
                 SeekOrigin.Current => _position + offset,
-                SeekOrigin.End => BytesWritten + offset,
-                _ => offset
+                SeekOrigin.End     => BytesWritten + offset,
+                _                  => offset
             }
         );
 
@@ -186,7 +196,7 @@ public ref struct SpanWriter : IDisposable
                 ArrayPool<byte>.Shared.Return(toReturn);
             }
 
-            return new SpanOwner(0, null, false);
+            return new(0, null, false);
         }
 
         // Capture the length BEFORE `this = default`, otherwise the reset zeroes
@@ -198,14 +208,14 @@ public ref struct SpanWriter : IDisposable
         {
             this = default;
 
-            return new SpanOwner(length, currentPoolBuffer, true);
+            return new(length, currentPoolBuffer, true);
         }
 
         var ownedBuffer = ArrayPool<byte>.Shared.Rent(length);
         _buffer[..length].CopyTo(ownedBuffer);
         this = default;
 
-        return new SpanOwner(length, ownedBuffer, true);
+        return new(length, ownedBuffer, true);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -321,21 +331,15 @@ public ref struct SpanWriter : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteAscii(char chr)
-    {
-        Write((byte)chr);
-    }
+        => Write((byte)chr);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteAscii(string value)
-    {
-        Write(value.AsSpan(), Encoding.ASCII);
-    }
+        => Write(value.AsSpan(), Encoding.ASCII);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteAscii(string value, int fixedLength)
-    {
-        Write(value.AsSpan(), Encoding.ASCII, fixedLength);
-    }
+        => Write(value.AsSpan(), Encoding.ASCII, fixedLength);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteAsciiNull(string value)
@@ -377,15 +381,11 @@ public ref struct SpanWriter : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteBigUni(string value)
-    {
-        Write(value.AsSpan(), Encoding.BigEndianUnicode);
-    }
+        => Write(value.AsSpan(), Encoding.BigEndianUnicode);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteBigUni(string value, int fixedLength)
-    {
-        Write(value.AsSpan(), Encoding.BigEndianUnicode, fixedLength);
-    }
+        => Write(value.AsSpan(), Encoding.BigEndianUnicode, fixedLength);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteBigUniNull(string value)
@@ -428,15 +428,11 @@ public ref struct SpanWriter : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteLittleUni(string value)
-    {
-        Write(value.AsSpan(), Encoding.Unicode);
-    }
+        => Write(value.AsSpan(), Encoding.Unicode);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteLittleUni(string value, int fixedLength)
-    {
-        Write(value.AsSpan(), Encoding.Unicode, fixedLength);
-    }
+        => Write(value.AsSpan(), Encoding.Unicode, fixedLength);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteLittleUniNull(string value)
@@ -455,9 +451,7 @@ public ref struct SpanWriter : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteUTF8(string value)
-    {
-        Write(value.AsSpan(), Encoding.UTF8);
-    }
+        => Write(value.AsSpan(), Encoding.UTF8);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteUTF8Null(string value)
@@ -467,14 +461,12 @@ public ref struct SpanWriter : IDisposable
     }
 
     private static int GetTerminatorWidth(Encoding encoding)
-    {
-        return encoding switch
+        => encoding switch
         {
             UnicodeEncoding => 2,
-            UTF32Encoding => 4,
-            _ => 1
+            UTF32Encoding   => 4,
+            _               => 1
         };
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void GrowIfNeeded(int count)
@@ -490,17 +482,5 @@ public ref struct SpanWriter : IDisposable
         }
 
         Grow(count);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose()
-    {
-        var toReturn = _arrayToReturnToPool;
-        this = default;
-
-        if (toReturn is not null)
-        {
-            ArrayPool<byte>.Shared.Return(toReturn);
-        }
     }
 }

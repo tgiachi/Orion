@@ -36,6 +36,12 @@ public sealed class RecordingEventBus : IEventBus
         return Task.CompletedTask;
     }
 
+    public Task StartAsync(CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    public Task StopAsync(CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
     public async Task<TEvent> WaitForEventAsync<TEvent>(TimeSpan timeout) where TEvent : IEvent
     {
         foreach (var eventData in _events)
@@ -73,10 +79,4 @@ public sealed class RecordingEventBus : IEventBus
             }
         }
     }
-
-    public Task StartAsync(CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task StopAsync(CancellationToken cancellationToken)
-        => Task.CompletedTask;
 }

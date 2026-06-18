@@ -20,9 +20,9 @@ using Serilog;
 var container = new Container();
 
 container.RegisterService<IEventBus, EventBus>();
-container.RegisterService<ISessionManagerService, SessionManagerService>(priority: 50);
+container.RegisterService<ISessionManagerService, SessionManagerService>(50);
 container.Register<IResultProcessor<string>, StringProcessor>(Reuse.Singleton);
-container.RegisterService<NetworkServerService, NetworkServerService>(priority: 100);
+container.RegisterService<NetworkServerService, NetworkServerService>(100);
 
 await ConsoleApp.RunAsync(
     args,
@@ -58,7 +58,11 @@ await ConsoleApp.RunAsync(
         container.Register<IOrionIrcdOrchestrator, OrionIrcdOrchestrator>();
 
         Log.Information("Starting up...");
-        Log.Information("OrionIRCd v{Version} Platform {Platform}", VersionUtils.GetVersion(), PlatformUtils.GetCurrentPlatform());
+        Log.Information(
+            "OrionIRCd v{Version} Platform {Platform}",
+            VersionUtils.GetVersion(),
+            PlatformUtils.GetCurrentPlatform()
+        );
 
         await container.Resolve<IOrionIrcdOrchestrator>().RunAsync(cancellationToken);
     }
@@ -79,7 +83,7 @@ static OrionIrcdConfig LoadConfig(Container container, string configFileName = "
     {
         Console.WriteLine("Initializing default config " + configFileName);
 
-        config = new OrionIrcdConfig();
+        config = new();
 
         config.Network.Entries.Add(
             new()

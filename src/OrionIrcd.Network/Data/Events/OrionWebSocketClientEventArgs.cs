@@ -3,12 +3,12 @@ using OrionIrcd.Network.Client;
 namespace OrionIrcd.Network.Data.Events;
 
 /// <summary>
-///     Event payload containing a WebSocket network client instance.
+/// Event payload containing a WebSocket network client instance.
 /// </summary>
 public sealed class OrionWebSocketClientEventArgs : EventArgs
 {
     /// <summary>
-    ///     Connected or disconnected client.
+    /// Connected or disconnected client.
     /// </summary>
     public OrionWebSocketClient Client { get; }
 

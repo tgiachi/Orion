@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DryIoc;
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Server.Services.Events;
@@ -8,31 +7,6 @@ namespace OrionIrcd.Tests.Server.Services.Events;
 
 public class EventBusTests
 {
-    [Fact]
-    public void Publish_SyncListenerThrows_DispatchesRemainingListeners()
-    {
-        using var container = new Container();
-        using var completedListeners = new CountdownEvent(2);
-        var eventBus = new EventBus(container);
-
-        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
-            new DelegateSyncEventListener<EventBusTestEvent>(_ => completedListeners.Signal()),
-            serviceKey: "first"
-        );
-        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
-            new DelegateSyncEventListener<EventBusTestEvent>(_ => throw new InvalidOperationException("listener failed")),
-            serviceKey: "throwing"
-        );
-        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
-            new DelegateSyncEventListener<EventBusTestEvent>(_ => completedListeners.Signal()),
-            serviceKey: "second"
-        );
-
-        eventBus.Publish(new EventBusTestEvent());
-
-        Assert.True(completedListeners.Wait(TimeSpan.FromSeconds(2)));
-    }
-
     [Fact]
     public async Task Publish_SlowSyncListener_ReturnsBeforeListenerCompletes()
     {
@@ -63,6 +37,31 @@ public class EventBusTests
     }
 
     [Fact]
+    public void Publish_SyncListenerThrows_DispatchesRemainingListeners()
+    {
+        using var container = new Container();
+        using var completedListeners = new CountdownEvent(2);
+        var eventBus = new EventBus(container);
+
+        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
+            new DelegateSyncEventListener<EventBusTestEvent>(_ => completedListeners.Signal()),
+            serviceKey: "first"
+        );
+        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
+            new DelegateSyncEventListener<EventBusTestEvent>(_ => throw new InvalidOperationException("listener failed")),
+            serviceKey: "throwing"
+        );
+        container.RegisterInstance<ISyncEventListener<EventBusTestEvent>>(
+            new DelegateSyncEventListener<EventBusTestEvent>(_ => completedListeners.Signal()),
+            serviceKey: "second"
+        );
+
+        eventBus.Publish(new EventBusTestEvent());
+
+        Assert.True(completedListeners.Wait(TimeSpan.FromSeconds(2)));
+    }
+
+    [Fact]
     public async Task PublishAsync_AsyncListenerThrows_DispatchesRemainingListeners()
     {
         using var container = new Container();
@@ -84,6 +83,7 @@ public class EventBusTests
                 async (_, cancellationToken) =>
                 {
                     await Task.Yield();
+
                     throw new InvalidOperationException("listener failed");
                 }
             ),

@@ -15,19 +15,19 @@ public sealed class TestNetworkConnection : INetworkConnection
 
     public List<byte[]> SentPayloads { get; } = [];
 
-    public Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        SentPayloads.Add(payload.ToArray());
-
-        return Task.CompletedTask;
-    }
-
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CloseCallCount++;
         IsConnected = false;
+
+        return Task.CompletedTask;
+    }
+
+    public Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        SentPayloads.Add(payload.ToArray());
 
         return Task.CompletedTask;
     }

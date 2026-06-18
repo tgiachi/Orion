@@ -10,6 +10,21 @@ namespace OrionIrcd.Tests.Server.Services.Sessions;
 public class SessionManagerServiceTests
 {
     [Fact]
+    public async Task CloseAsync_ConnectedSession_MarksClosingAndClosesConnection()
+    {
+        var service = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        var session = service.Register(connection);
+
+        var result = await service.CloseAsync(10, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(NetworkSessionStatusType.Closing, session.Status);
+        Assert.False(connection.IsConnected);
+        Assert.Equal(1, connection.CloseCallCount);
+    }
+
+    [Fact]
     public void NetworkSession_Constructor_InitializesConnectedState()
     {
         var connection = new TestNetworkConnection { SessionId = 42 };
@@ -54,43 +69,6 @@ public class SessionManagerServiceTests
     }
 
     [Fact]
-    public async Task Register_NewConnection_AddsSessionAndPublishesConnectedEvent()
-    {
-        var eventBus = new RecordingEventBus();
-        var service = new SessionManagerService(eventBus, TimeProvider.System);
-        var connection = new TestNetworkConnection { SessionId = 10 };
-
-        var session = service.Register(connection);
-        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(
-            TimeSpan.FromSeconds(5)
-        );
-
-        Assert.Same(session, publishedEvent.Session);
-        Assert.True(service.TryGetSession(10, out var foundSession));
-        Assert.Same(session, foundSession);
-        Assert.Equal(NetworkSessionStatusType.Connected, session.Status);
-    }
-
-    [Fact]
-    public async Task Unregister_ExistingConnection_RemovesSessionAndPublishesDisconnectedEvent()
-    {
-        var eventBus = new RecordingEventBus();
-        var service = new SessionManagerService(eventBus, TimeProvider.System);
-        var connection = new TestNetworkConnection { SessionId = 10 };
-        var session = service.Register(connection);
-
-        var removedSession = service.Unregister(connection);
-        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(
-            TimeSpan.FromSeconds(5)
-        );
-
-        Assert.Same(session, removedSession);
-        Assert.Same(session, publishedEvent.Session);
-        Assert.Equal(NetworkSessionStatusType.Disconnected, session.Status);
-        Assert.False(service.TryGetSession(10, out _));
-    }
-
-    [Fact]
     public async Task RecordActivity_ExistingConnection_UpdatesCountersAndPublishesDataEvent()
     {
         var eventBus = new RecordingEventBus();
@@ -100,9 +78,7 @@ public class SessionManagerServiceTests
         ReadOnlyMemory<byte> payload = new byte[] { 1, 2, 3, 4 };
 
         var updatedSession = service.RecordActivity(connection, payload);
-        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(
-            TimeSpan.FromSeconds(5)
-        );
+        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionDataReceivedEvent>(TimeSpan.FromSeconds(5));
 
         Assert.Same(session, updatedSession);
         Assert.Equal(4, session.BytesReceived);
@@ -123,6 +99,22 @@ public class SessionManagerServiceTests
         Assert.True(service.TryGetSession(10, out var foundSession));
         Assert.Same(session, foundSession);
         Assert.Equal(3, session!.BytesReceived);
+    }
+
+    [Fact]
+    public async Task Register_NewConnection_AddsSessionAndPublishesConnectedEvent()
+    {
+        var eventBus = new RecordingEventBus();
+        var service = new SessionManagerService(eventBus, TimeProvider.System);
+        var connection = new TestNetworkConnection { SessionId = 10 };
+
+        var session = service.Register(connection);
+        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionConnectedEvent>(TimeSpan.FromSeconds(5));
+
+        Assert.Same(session, publishedEvent.Session);
+        Assert.True(service.TryGetSession(10, out var foundSession));
+        Assert.Same(session, foundSession);
+        Assert.Equal(NetworkSessionStatusType.Connected, session.Status);
     }
 
     [Fact]
@@ -149,21 +141,6 @@ public class SessionManagerServiceTests
     }
 
     [Fact]
-    public async Task CloseAsync_ConnectedSession_MarksClosingAndClosesConnection()
-    {
-        var service = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
-        var connection = new TestNetworkConnection { SessionId = 10 };
-        var session = service.Register(connection);
-
-        var result = await service.CloseAsync(10, CancellationToken.None);
-
-        Assert.True(result);
-        Assert.Equal(NetworkSessionStatusType.Closing, session.Status);
-        Assert.False(connection.IsConnected);
-        Assert.Equal(1, connection.CloseCallCount);
-    }
-
-    [Fact]
     public async Task StopAsync_RegisteredSessions_ClosesAndClearsSessions()
     {
         var service = new SessionManagerService(new RecordingEventBus(), TimeProvider.System);
@@ -177,5 +154,22 @@ public class SessionManagerServiceTests
         Assert.Empty(service.GetSessions());
         Assert.False(first.IsConnected);
         Assert.False(second.IsConnected);
+    }
+
+    [Fact]
+    public async Task Unregister_ExistingConnection_RemovesSessionAndPublishesDisconnectedEvent()
+    {
+        var eventBus = new RecordingEventBus();
+        var service = new SessionManagerService(eventBus, TimeProvider.System);
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        var session = service.Register(connection);
+
+        var removedSession = service.Unregister(connection);
+        var publishedEvent = await eventBus.WaitForEventAsync<NetworkSessionDisconnectedEvent>(TimeSpan.FromSeconds(5));
+
+        Assert.Same(session, removedSession);
+        Assert.Same(session, publishedEvent.Session);
+        Assert.Equal(NetworkSessionStatusType.Disconnected, session.Status);
+        Assert.False(service.TryGetSession(10, out _));
     }
 }

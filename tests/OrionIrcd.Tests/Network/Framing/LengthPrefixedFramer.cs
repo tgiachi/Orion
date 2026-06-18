@@ -3,7 +3,7 @@ using OrionIrcd.Network.Interfaces.Framing;
 namespace OrionIrcd.Tests.Network.Framing;
 
 /// <summary>
-///     Test framer: each frame starts with a 2-byte big-endian length that includes the prefix itself.
+/// Test framer: each frame starts with a 2-byte big-endian length that includes the prefix itself.
 /// </summary>
 internal sealed class LengthPrefixedFramer : INetFramer
 {

@@ -5,7 +5,6 @@ using System.Net.WebSockets;
 using System.Reflection;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
-using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Server;
 using OrionIrcd.Tests.Support.Network;
 
@@ -16,7 +15,7 @@ public class OrionWebSocketServerTests
     [Fact]
     public void Metadata_ReportsWebSocketServerType()
     {
-        using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
+        using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
 
         Assert.Equal(ServerType.WebSocket, server.ServerType);
         Assert.False(server.IsRunning);
@@ -26,7 +25,7 @@ public class OrionWebSocketServerTests
     [Fact]
     public async Task Start_AcceptsWebSocketClient()
     {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
         var connectedSignal = new TaskCompletionSource<OrionWebSocketClient>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
@@ -35,7 +34,7 @@ public class OrionWebSocketServerTests
         await server.StartAsync(CancellationToken.None);
 
         using var client = new ClientWebSocket();
-        await client.ConnectAsync(new Uri($"ws://localhost:{server.Port}/"), CancellationToken.None);
+        await client.ConnectAsync(new($"ws://localhost:{server.Port}/"), CancellationToken.None);
 
         var connectedClient = await connectedSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -45,45 +44,16 @@ public class OrionWebSocketServerTests
     }
 
     [Fact]
-    public async Task Start_ReceivesTextMessageAsBytes()
-    {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
-        var receivedSignal = new TaskCompletionSource<byte[]>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
-        server.OnDataReceived += (_, args) => receivedSignal.TrySetResult(args.Data.ToArray());
-
-        await server.StartAsync(CancellationToken.None);
-
-        using var client = new ClientWebSocket();
-        await client.ConnectAsync(new Uri($"ws://localhost:{server.Port}/"), CancellationToken.None);
-        await client.SendAsync(
-            "PING :server\r\n"u8.ToArray(),
-            WebSocketMessageType.Text,
-            true,
-            CancellationToken.None
-        );
-
-        var received = await receivedSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Equal("PING :server\r\n"u8.ToArray(), received);
-
-        await server.StopAsync(CancellationToken.None);
-    }
-
-    [Fact]
     public async Task Start_ReceivesBinaryMessageAsBytes()
     {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
-        var receivedSignal = new TaskCompletionSource<byte[]>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
+        var receivedSignal = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         server.OnDataReceived += (_, args) => receivedSignal.TrySetResult(args.Data.ToArray());
 
         await server.StartAsync(CancellationToken.None);
 
         using var client = new ClientWebSocket();
-        await client.ConnectAsync(new Uri($"ws://localhost:{server.Port}/"), CancellationToken.None);
+        await client.ConnectAsync(new($"ws://localhost:{server.Port}/"), CancellationToken.None);
         await client.SendAsync(
             "NICK binary-test\r\n"u8.ToArray(),
             WebSocketMessageType.Binary,
@@ -99,17 +69,42 @@ public class OrionWebSocketServerTests
     }
 
     [Fact]
+    public async Task Start_ReceivesTextMessageAsBytes()
+    {
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
+        var receivedSignal = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.OnDataReceived += (_, args) => receivedSignal.TrySetResult(args.Data.ToArray());
+
+        await server.StartAsync(CancellationToken.None);
+
+        using var client = new ClientWebSocket();
+        await client.ConnectAsync(new($"ws://localhost:{server.Port}/"), CancellationToken.None);
+        await client.SendAsync(
+            "PING :server\r\n"u8.ToArray(),
+            WebSocketMessageType.Text,
+            true,
+            CancellationToken.None
+        );
+
+        var received = await receivedSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("PING :server\r\n"u8.ToArray(), received);
+
+        await server.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Start_RejectsNonWebSocketHttpRequest()
     {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
 
         await server.StartAsync(CancellationToken.None);
 
         using var httpClient = new HttpClient();
         var response = await httpClient.GetAsync(
-            new Uri($"http://localhost:{server.Port}/"),
-            CancellationToken.None
-        );
+                           new Uri($"http://localhost:{server.Port}/"),
+                           CancellationToken.None
+                       );
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -121,26 +116,24 @@ public class OrionWebSocketServerTests
     {
         using var certificate = TestCertificateFactory.CreateSelfSignedCertificate();
         await using var server = new OrionWebSocketServer(
-            new IPEndPoint(IPAddress.Loopback, 0),
-            new OrionWebSocketServerTlsOptions(certificate)
+            new(IPAddress.Loopback, 0),
+            new(certificate)
         );
         var expectedThumbprint = certificate.Thumbprint;
-        var receivedSignal = new TaskCompletionSource<byte[]>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
+        var receivedSignal = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         server.OnDataReceived += (_, args) => receivedSignal.TrySetResult(args.Data.ToArray());
 
         await server.StartAsync(CancellationToken.None);
 
         using var client = new ClientWebSocket();
         client.Options.RemoteCertificateValidationCallback = (_, serverCertificate, _, _) =>
-            string.Equals(
-                expectedThumbprint,
-                serverCertificate?.GetCertHashString(),
-                StringComparison.OrdinalIgnoreCase
-            );
+                                                                 string.Equals(
+                                                                     expectedThumbprint,
+                                                                     serverCertificate?.GetCertHashString(),
+                                                                     StringComparison.OrdinalIgnoreCase
+                                                                 );
 
-        await client.ConnectAsync(new Uri($"wss://localhost:{server.Port}/"), CancellationToken.None);
+        await client.ConnectAsync(new($"wss://localhost:{server.Port}/"), CancellationToken.None);
         await client.SendAsync(
             "CAP LS 302\r\n"u8.ToArray(),
             WebSocketMessageType.Text,
@@ -156,38 +149,9 @@ public class OrionWebSocketServerTests
     }
 
     [Fact]
-    public async Task Stop_WithIdleClient_ReturnsPromptly()
-    {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
-        var connectedSignal = new TaskCompletionSource<OrionWebSocketClient>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
-        server.OnClientConnect += (_, args) => connectedSignal.TrySetResult(args.Client);
-
-        await server.StartAsync(CancellationToken.None);
-
-        using var client = new ClientWebSocket();
-        await client.ConnectAsync(new Uri($"ws://localhost:{server.Port}/"), CancellationToken.None);
-        await connectedSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        var stopwatch = Stopwatch.StartNew();
-
-        await server.StopAsync(CancellationToken.None);
-
-        stopwatch.Stop();
-
-        await AssertClientClosedAsync(client);
-
-        Assert.True(
-            stopwatch.Elapsed < TimeSpan.FromMilliseconds(1500),
-            $"StopAsync took {stopwatch.Elapsed}."
-        );
-    }
-
-    [Fact]
     public async Task Stop_RejectsWebSocketAcceptedAfterShutdownBegins()
     {
-        await using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
 
         await server.StartAsync(CancellationToken.None);
 
@@ -205,7 +169,7 @@ public class OrionWebSocketServerTests
         try
         {
             using var connectTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await lateClient.ConnectAsync(new Uri($"ws://localhost:{port}/"), connectTimeout.Token);
+            await lateClient.ConnectAsync(new($"ws://localhost:{port}/"), connectTimeout.Token);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -225,19 +189,32 @@ public class OrionWebSocketServerTests
         Assert.NotNull(connectException);
     }
 
-    private static ConcurrentDictionary<long, OrionWebSocketClient> GetServerClients(
-        OrionWebSocketServer server
-    )
+    [Fact]
+    public async Task Stop_WithIdleClient_ReturnsPromptly()
     {
-        var field = typeof(OrionWebSocketServer).GetField(
-            "_clients",
-            BindingFlags.Instance | BindingFlags.NonPublic
+        await using var server = new OrionWebSocketServer(new(IPAddress.Loopback, 0));
+        var connectedSignal = new TaskCompletionSource<OrionWebSocketClient>(
+            TaskCreationOptions.RunContinuationsAsynchronously
         );
+        server.OnClientConnect += (_, args) => connectedSignal.TrySetResult(args.Client);
 
-        Assert.NotNull(field);
+        await server.StartAsync(CancellationToken.None);
 
-        return Assert.IsType<ConcurrentDictionary<long, OrionWebSocketClient>>(
-            field.GetValue(server)
+        using var client = new ClientWebSocket();
+        await client.ConnectAsync(new($"ws://localhost:{server.Port}/"), CancellationToken.None);
+        await connectedSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var stopwatch = Stopwatch.StartNew();
+
+        await server.StopAsync(CancellationToken.None);
+
+        stopwatch.Stop();
+
+        await AssertClientClosedAsync(client);
+
+        Assert.True(
+            stopwatch.Elapsed < TimeSpan.FromMilliseconds(1500),
+            $"StopAsync took {stopwatch.Elapsed}."
         );
     }
 
@@ -265,5 +242,17 @@ public class OrionWebSocketServerTests
             closeObserved,
             $"Expected closed client connection, got {client.State}."
         );
+    }
+
+    private static ConcurrentDictionary<long, OrionWebSocketClient> GetServerClients(OrionWebSocketServer server)
+    {
+        var field = typeof(OrionWebSocketServer).GetField(
+            "_clients",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+
+        Assert.NotNull(field);
+
+        return Assert.IsType<ConcurrentDictionary<long, OrionWebSocketClient>>(field.GetValue(server));
     }
 }

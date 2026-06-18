@@ -4,8 +4,8 @@ using System.Net.Security;
 using System.Net.Sockets;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
-using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Data.Events;
+using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;
 using OrionIrcd.Network.Interfaces.Server;
@@ -14,8 +14,8 @@ using Serilog;
 namespace OrionIrcd.Network.Server;
 
 /// <summary>
-///     High-throughput TCP server with client lifecycle events and middleware-enabled payload dispatch.
-///     Supports Start/Stop/Start cycles by recreating the underlying socket on each Start.
+/// High-throughput TCP server with client lifecycle events and middleware-enabled payload dispatch.
+/// Supports Start/Stop/Start cycles by recreating the underlying socket on each Start.
 /// </summary>
 public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposable
 {
@@ -37,47 +37,47 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
     private int _started;
 
     /// <summary>
-    ///     Transport type exposed by this server.
+    /// Transport type exposed by this server.
     /// </summary>
-    public ServerType ServerType => OrionIrcd.Core.Types.ServerType.TCP;
+    public ServerType ServerType => ServerType.TCP;
 
     /// <summary>
-    ///     Current listening port. Returns 0 when the server is stopped.
+    /// Current listening port. Returns 0 when the server is stopped.
     /// </summary>
     public int Port => ((IPEndPoint?)_serverSocket?.LocalEndPoint)?.Port ?? 0;
 
     /// <summary>
-    ///     True when the server is currently accepting connections.
+    /// True when the server is currently accepting connections.
     /// </summary>
     public bool IsRunning => Volatile.Read(ref _started) != 0;
 
     /// <summary>
-    ///     Raised when a client connects.
+    /// Raised when a client connects.
     /// </summary>
     public event EventHandler<OrionTcpClientEventArgs>? OnClientConnect;
 
     /// <summary>
-    ///     Raised when a client disconnects.
+    /// Raised when a client disconnects.
     /// </summary>
     public event EventHandler<OrionTcpClientEventArgs>? OnClientDisconnect;
 
     /// <summary>
-    ///     Raised when a client sends data after middleware processing.
+    /// Raised when a client sends data after middleware processing.
     /// </summary>
     public event EventHandler<OrionTcpDataReceivedEventArgs>? OnDataReceived;
 
     /// <summary>
-    ///     Raised when an exception happens in accept loop or client loops.
+    /// Raised when an exception happens in accept loop or client loops.
     /// </summary>
     public event EventHandler<OrionTcpExceptionEventArgs>? OnException;
 
     /// <summary>
-    ///     Initializes a TCP server bound to the given endpoint.
+    /// Initializes a TCP server bound to the given endpoint.
     /// </summary>
     /// <param name="endPoint">Endpoint to bind on every <see cref="StartAsync" />.</param>
     /// <param name="framer">
-    ///     Optional framer template. The same instance is shared by all accepted clients,
-    ///     so implementations must be stateless or thread-safe.
+    /// Optional framer template. The same instance is shared by all accepted clients,
+    /// so implementations must be stateless or thread-safe.
     /// </param>
     /// <param name="receiveBufferSize">Per-client receive chunk size.</param>
     /// <param name="historyBufferCapacity">Per-client history buffer capacity.</param>
@@ -97,7 +97,7 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
     }
 
     /// <summary>
-    ///     Registers middleware in execution order.
+    /// Registers middleware in execution order.
     /// </summary>
     public OrionTcpServer AddMiddleware(INetMiddleware middleware)
     {
@@ -109,9 +109,17 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
         return this;
     }
 
+    /// <inheritdoc />
+    public void Dispose()
+        => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+        => await StopAsync(CancellationToken.None);
+
     /// <summary>
-    ///     Starts accepting clients. Recreates the listening socket on every call,
-    ///     so Stop/Start cycles are supported.
+    /// Starts accepting clients. Recreates the listening socket on every call,
+    /// so Stop/Start cycles are supported.
     /// </summary>
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -120,7 +128,7 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
             return Task.CompletedTask;
         }
 
-        _serverSocket = new Socket(_endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        _serverSocket = new(_endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _serverSocket.Bind(_endPoint);
         _serverSocket.Listen(DefaultBacklog);
 
@@ -133,7 +141,7 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
     }
 
     /// <summary>
-    ///     Stops accepting new clients and closes all active clients.
+    /// Stops accepting new clients and closes all active clients.
     /// </summary>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
@@ -229,7 +237,7 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
             catch (Exception ex)
             {
                 _logger.Error(ex, "Accept loop failed");
-                OnException?.Invoke(this, new OrionTcpExceptionEventArgs(ex));
+                OnException?.Invoke(this, new(ex));
             }
         }
     }
@@ -303,17 +311,5 @@ public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposab
                                      );
                                      OnClientDisconnect?.Invoke(this, args);
                                  };
-    }
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync(CancellationToken.None);
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

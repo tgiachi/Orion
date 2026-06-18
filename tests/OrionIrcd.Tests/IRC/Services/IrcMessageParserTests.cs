@@ -26,19 +26,31 @@ public class IrcMessageParserTests
     }
 
     [Fact]
-    public void ParseMessages_ServerPrefix_ReturnsServerName()
+    public void ParseMessages_CustomSeparator_UsesProvidedSeparator()
     {
         var parser = new IrcMessageParser();
 
-        var messages = parser.ParseMessages(ToBytes(":irc.example.net PING :orion\r\n"));
+        var messages = parser.ParseMessages(ToBytes("PING :one\nPONG :two\n"), "\n");
+
+        Assert.Equal(2, messages.Count);
+        Assert.Equal("one", messages[0].Trailing);
+        Assert.Equal("two", messages[1].Trailing);
+    }
+
+    [Fact]
+    public void ParseMessages_IrcV3Tags_UnescapesValuesAndKeepsValuelessTag()
+    {
+        var parser = new IrcMessageParser();
+
+        var messages = parser.ParseMessages(
+            ToBytes("@custom=hello\\sworld\\:semi\\\\slash\\r\\nend;client-only PING :server\r\n")
+        );
 
         var message = Assert.Single(messages);
         Assert.Equal("PING", message.Command);
-        Assert.Equal("orion", message.Trailing);
-        Assert.NotNull(message.Prefix);
-        Assert.True(message.Prefix!.IsServer);
-        Assert.False(message.Prefix.IsUser);
-        Assert.Equal("irc.example.net", message.Prefix.ServerName);
+        Assert.True(message.Tags.ContainsKey("client-only"));
+        Assert.Null(message.Tags["client-only"]);
+        Assert.Equal("hello world;semi\\slash\r\nend", message.Tags["custom"]);
     }
 
     [Fact]
@@ -72,30 +84,19 @@ public class IrcMessageParserTests
     }
 
     [Fact]
-    public void ParseMessages_IrcV3Tags_UnescapesValuesAndKeepsValuelessTag()
+    public void ParseMessages_ServerPrefix_ReturnsServerName()
     {
         var parser = new IrcMessageParser();
 
-        var messages = parser.ParseMessages(
-            ToBytes("@custom=hello\\sworld\\:semi\\\\slash\\r\\nend;client-only PING :server\r\n"));
+        var messages = parser.ParseMessages(ToBytes(":irc.example.net PING :orion\r\n"));
 
         var message = Assert.Single(messages);
         Assert.Equal("PING", message.Command);
-        Assert.True(message.Tags.ContainsKey("client-only"));
-        Assert.Null(message.Tags["client-only"]);
-        Assert.Equal("hello world;semi\\slash\r\nend", message.Tags["custom"]);
-    }
-
-    [Fact]
-    public void ParseMessages_CustomSeparator_UsesProvidedSeparator()
-    {
-        var parser = new IrcMessageParser();
-
-        var messages = parser.ParseMessages(ToBytes("PING :one\nPONG :two\n"), "\n");
-
-        Assert.Equal(2, messages.Count);
-        Assert.Equal("one", messages[0].Trailing);
-        Assert.Equal("two", messages[1].Trailing);
+        Assert.Equal("orion", message.Trailing);
+        Assert.NotNull(message.Prefix);
+        Assert.True(message.Prefix!.IsServer);
+        Assert.False(message.Prefix.IsUser);
+        Assert.Equal("irc.example.net", message.Prefix.ServerName);
     }
 
     [Fact]
@@ -110,7 +111,5 @@ public class IrcMessageParserTests
     }
 
     private static byte[] ToBytes(string value)
-    {
-        return Encoding.UTF8.GetBytes(value);
-    }
+        => Encoding.UTF8.GetBytes(value);
 }

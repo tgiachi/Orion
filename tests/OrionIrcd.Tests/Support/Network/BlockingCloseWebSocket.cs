@@ -4,12 +4,10 @@ namespace OrionIrcd.Tests.Support.Network;
 
 public sealed class BlockingCloseWebSocket : WebSocket
 {
-    private readonly TaskCompletionSource<object?> _closeRelease = new(
-        TaskCreationOptions.RunContinuationsAsynchronously
-    );
-    private readonly TaskCompletionSource<object?> _closeStarted = new(
-        TaskCreationOptions.RunContinuationsAsynchronously
-    );
+    private readonly TaskCompletionSource<object?> _closeRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private readonly TaskCompletionSource<object?> _closeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private WebSocketState _state = WebSocketState.Open;
 
     public Task CloseStarted => _closeStarted.Task;
@@ -22,11 +20,6 @@ public sealed class BlockingCloseWebSocket : WebSocket
 
     public override string? SubProtocol => null;
 
-    public void ReleaseClose()
-    {
-        _closeRelease.TrySetResult(null);
-    }
-
     public override void Abort()
     {
         _state = WebSocketState.Aborted;
@@ -38,9 +31,7 @@ public sealed class BlockingCloseWebSocket : WebSocket
         string? statusDescription,
         CancellationToken cancellationToken
     )
-    {
-        return CloseOutputAsync(closeStatus, statusDescription, cancellationToken);
-    }
+        => CloseOutputAsync(closeStatus, statusDescription, cancellationToken);
 
     public override async Task CloseOutputAsync(
         WebSocketCloseStatus closeStatus,
@@ -63,9 +54,10 @@ public sealed class BlockingCloseWebSocket : WebSocket
         ArraySegment<byte> buffer,
         CancellationToken cancellationToken
     )
-    {
-        return Task.FromException<WebSocketReceiveResult>(new NotSupportedException());
-    }
+        => Task.FromException<WebSocketReceiveResult>(new NotSupportedException());
+
+    public void ReleaseClose()
+        => _closeRelease.TrySetResult(null);
 
     public override Task SendAsync(
         ArraySegment<byte> buffer,
@@ -73,7 +65,5 @@ public sealed class BlockingCloseWebSocket : WebSocket
         bool endOfMessage,
         CancellationToken cancellationToken
     )
-    {
-        return Task.CompletedTask;
-    }
+        => Task.CompletedTask;
 }

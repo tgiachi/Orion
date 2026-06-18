@@ -8,7 +8,7 @@ using Serilog;
 namespace OrionIrcd.Network.Client;
 
 /// <summary>
-///     Represents a connected WebSocket client with async send/receive lifecycle events.
+/// Represents a connected WebSocket client with async send/receive lifecycle events.
 /// </summary>
 public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable, IDisposable
 {
@@ -25,37 +25,37 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     private int _started;
 
     /// <summary>
-    ///     Unique session identifier for this client connection.
+    /// Unique session identifier for this client connection.
     /// </summary>
     public long SessionId { get; }
 
     /// <summary>
-    ///     Client remote endpoint, when available.
+    /// Client remote endpoint, when available.
     /// </summary>
     public EndPoint? RemoteEndPoint { get; }
 
     /// <summary>
-    ///     True when the underlying WebSocket is open and the client is not closed.
+    /// True when the underlying WebSocket is open and the client is not closed.
     /// </summary>
     public bool IsConnected => CanSend();
 
     /// <summary>
-    ///     Raised when the client receive loop starts.
+    /// Raised when the client receive loop starts.
     /// </summary>
     public event EventHandler<OrionWebSocketClientEventArgs>? OnConnected;
 
     /// <summary>
-    ///     Raised when the client is disconnected.
+    /// Raised when the client is disconnected.
     /// </summary>
     public event EventHandler<OrionWebSocketClientEventArgs>? OnDisconnected;
 
     /// <summary>
-    ///     Raised when a complete WebSocket message is received.
+    /// Raised when a complete WebSocket message is received.
     /// </summary>
     public event EventHandler<OrionWebSocketDataReceivedEventArgs>? OnDataReceived;
 
     /// <summary>
-    ///     Raised when receive/send loops throw an exception.
+    /// Raised when receive/send loops throw an exception.
     /// </summary>
     public event EventHandler<OrionWebSocketExceptionEventArgs>? OnException;
 
@@ -69,7 +69,40 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     }
 
     /// <summary>
-    ///     Runs the WebSocket receive loop and raises lifecycle events.
+    /// Closes the WebSocket connection and raises disconnect event once.
+    /// </summary>
+    public async Task CloseAsync(CancellationToken cancellationToken = default)
+        => await CloseAsyncCore(true, cancellationToken);
+
+    /// <inheritdoc />
+    public void Dispose() // Sync-over-async: best effort. Prefer DisposeAsync.
+        => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        await CloseAsync(CancellationToken.None);
+
+        await _sendLock.WaitAsync(CancellationToken.None);
+
+        try
+        {
+            _webSocket.Abort();
+            _webSocket.Dispose();
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Runs the WebSocket receive loop and raises lifecycle events.
     /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -93,7 +126,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
                     break;
                 }
 
-                OnDataReceived?.Invoke(this, new OrionWebSocketDataReceivedEventArgs(this, message));
+                OnDataReceived?.Invoke(this, new(this, message));
             }
         }
         catch (OperationCanceledException)
@@ -120,7 +153,7 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
     }
 
     /// <summary>
-    ///     Sends a non-empty binary WebSocket message.
+    /// Sends a non-empty binary WebSocket message.
     /// </summary>
     public async Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -160,20 +193,8 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         }
     }
 
-    /// <summary>
-    ///     Closes the WebSocket connection and raises disconnect event once.
-    /// </summary>
-    public async Task CloseAsync(CancellationToken cancellationToken = default)
-    {
-        await CloseAsyncCore(true, cancellationToken);
-    }
-
     private bool CanSend()
-    {
-        return Volatile.Read(ref _disposed) == 0
-            && Volatile.Read(ref _closed) == 0
-            && TryGetState() == WebSocketState.Open;
-    }
+        => Volatile.Read(ref _disposed) == 0 && Volatile.Read(ref _closed) == 0 && TryGetState() == WebSocketState.Open;
 
     private async Task CloseAsyncCore(bool acquireSendLock, CancellationToken cancellationToken)
     {
@@ -230,6 +251,37 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         }
     }
 
+    private void RaiseConnected()
+    {
+        _logger.Information(
+            "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            SessionId,
+            RemoteEndPoint
+        );
+        OnConnected?.Invoke(this, new(this));
+    }
+
+    private void RaiseDisconnected()
+    {
+        _logger.Information(
+            "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            SessionId,
+            RemoteEndPoint
+        );
+        OnDisconnected?.Invoke(this, new(this));
+    }
+
+    private void RaiseException(Exception exception)
+    {
+        _logger.Error(
+            exception,
+            "WebSocket client exception. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+            SessionId,
+            RemoteEndPoint
+        );
+        OnException?.Invoke(this, new(exception, this));
+    }
+
     private async Task<byte[]?> ReceiveMessageAsync(byte[] buffer, CancellationToken cancellationToken)
     {
         using var stream = new MemoryStream();
@@ -238,9 +290,9 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         while (true)
         {
             var result = await _webSocket.ReceiveAsync(
-                buffer.AsMemory(0, DefaultReceiveBufferSize),
-                cancellationToken
-            );
+                             buffer.AsMemory(0, DefaultReceiveBufferSize),
+                             cancellationToken
+                         );
 
             if (result.MessageType == WebSocketMessageType.Close)
             {
@@ -268,37 +320,6 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         return stream.ToArray();
     }
 
-    private void RaiseConnected()
-    {
-        _logger.Information(
-            "WebSocket client connected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            SessionId,
-            RemoteEndPoint
-        );
-        OnConnected?.Invoke(this, new OrionWebSocketClientEventArgs(this));
-    }
-
-    private void RaiseDisconnected()
-    {
-        _logger.Information(
-            "WebSocket client disconnected. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            SessionId,
-            RemoteEndPoint
-        );
-        OnDisconnected?.Invoke(this, new OrionWebSocketClientEventArgs(this));
-    }
-
-    private void RaiseException(Exception exception)
-    {
-        _logger.Error(
-            exception,
-            "WebSocket client exception. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-            SessionId,
-            RemoteEndPoint
-        );
-        OnException?.Invoke(this, new OrionWebSocketExceptionEventArgs(exception, this));
-    }
-
     private WebSocketState? TryGetState()
     {
         try
@@ -309,34 +330,5 @@ public sealed class OrionWebSocketClient : INetworkConnection, IAsyncDisposable,
         {
             return null;
         }
-    }
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        await CloseAsync(CancellationToken.None);
-
-        await _sendLock.WaitAsync(CancellationToken.None);
-
-        try
-        {
-            _webSocket.Abort();
-            _webSocket.Dispose();
-        }
-        finally
-        {
-            _sendLock.Release();
-        }
-    }
-
-    /// <inheritdoc />
-    public void Dispose() // Sync-over-async: best effort. Prefer DisposeAsync.
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

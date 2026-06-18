@@ -16,7 +16,8 @@ public sealed class NotParsedCommandWriter : IIrcCommandWriter<NotParsedCommand>
                 {
                     Type = IrcCommandErrorType.Validation,
                     Message = "Command code is required."
-                });
+                }
+            );
         }
 
         var output = string.IsNullOrWhiteSpace(command.Message)

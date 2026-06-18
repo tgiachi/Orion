@@ -8,18 +8,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\OrionIrcd.Core\OrionIrcd.Core.csproj" />
-      <ProjectReference Include="..\OrionIrcd.Network\OrionIrcd.Network.csproj" />
+        <ProjectReference Include="..\OrionIrcd.Core\OrionIrcd.Core.csproj"/>
+        <ProjectReference Include="..\OrionIrcd.IRC\OrionIrcd.IRC.csproj" />
+        <ProjectReference Include="..\OrionIrcd.Network\OrionIrcd.Network.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="ConsoleAppFramework" Version="5.7.13">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
-      <PackageReference Include="Serilog" Version="4.3.1" />
-      <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-      <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+        <PackageReference Include="ConsoleAppFramework" Version="5.7.13">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Serilog" Version="4.3.1"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
     </ItemGroup>
 
 </Project>

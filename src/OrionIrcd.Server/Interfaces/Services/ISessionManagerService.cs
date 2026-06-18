@@ -10,18 +10,18 @@ namespace OrionIrcd.Server.Interfaces.Services;
 public interface ISessionManagerService : IOrionIrcdService
 {
     /// <summary>
-    /// Registers a connected network connection as an active session.
+    /// Closes an active session.
     /// </summary>
-    /// <param name="connection">Connected network transport.</param>
-    /// <returns>The active session for the connection.</returns>
-    NetworkSession Register(INetworkConnection connection);
+    /// <param name="sessionId">Target session id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><see langword="true" /> when the session was found and close was requested.</returns>
+    Task<bool> CloseAsync(long sessionId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Removes a connection from the active session list.
+    /// Returns a snapshot of active sessions.
     /// </summary>
-    /// <param name="connection">Disconnected network transport.</param>
-    /// <returns>The removed session, or null when the connection was not tracked.</returns>
-    NetworkSession? Unregister(INetworkConnection connection);
+    /// <returns>Active session snapshot.</returns>
+    IReadOnlyList<NetworkSession> GetSessions();
 
     /// <summary>
     /// Records raw data activity for a connection.
@@ -32,18 +32,11 @@ public interface ISessionManagerService : IOrionIrcdService
     NetworkSession RecordActivity(INetworkConnection connection, ReadOnlyMemory<byte> data);
 
     /// <summary>
-    /// Attempts to get an active session by transport session id.
+    /// Registers a connected network connection as an active session.
     /// </summary>
-    /// <param name="sessionId">Transport session id.</param>
-    /// <param name="session">Matched session when found.</param>
-    /// <returns><see langword="true" /> when the session exists.</returns>
-    bool TryGetSession(long sessionId, out NetworkSession? session);
-
-    /// <summary>
-    /// Returns a snapshot of active sessions.
-    /// </summary>
-    /// <returns>Active session snapshot.</returns>
-    IReadOnlyList<NetworkSession> GetSessions();
+    /// <param name="connection">Connected network transport.</param>
+    /// <returns>The active session for the connection.</returns>
+    NetworkSession Register(INetworkConnection connection);
 
     /// <summary>
     /// Sends bytes to an active session.
@@ -55,10 +48,17 @@ public interface ISessionManagerService : IOrionIrcdService
     Task<bool> SendAsync(long sessionId, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Closes an active session.
+    /// Attempts to get an active session by transport session id.
     /// </summary>
-    /// <param name="sessionId">Target session id.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns><see langword="true" /> when the session was found and close was requested.</returns>
-    Task<bool> CloseAsync(long sessionId, CancellationToken cancellationToken);
+    /// <param name="sessionId">Transport session id.</param>
+    /// <param name="session">Matched session when found.</param>
+    /// <returns><see langword="true" /> when the session exists.</returns>
+    bool TryGetSession(long sessionId, out NetworkSession? session);
+
+    /// <summary>
+    /// Removes a connection from the active session list.
+    /// </summary>
+    /// <param name="connection">Disconnected network transport.</param>
+    /// <returns>The removed session, or null when the connection was not tracked.</returns>
+    NetworkSession? Unregister(INetworkConnection connection);
 }

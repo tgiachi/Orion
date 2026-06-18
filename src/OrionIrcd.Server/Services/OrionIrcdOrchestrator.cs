@@ -35,6 +35,16 @@ public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
         }
     }
 
+    private IOrionIrcdService ResolveService(ServiceRegistrationObject serviceRegistrationObject)
+    {
+        var service = _container.Resolve(serviceRegistrationObject.ServiceType);
+
+        return service as IOrionIrcdService ??
+               throw new InvalidOperationException(
+                   $"Registered service '{serviceRegistrationObject.ServiceType.FullName}' does not implement {nameof(IOrionIrcdService)}."
+               );
+    }
+
     private async Task StartServicesAsync()
     {
         foreach (var serviceRegistrationObject in _serviceRegistrationObjects.OrderBy(service => service.Priority))
@@ -68,15 +78,5 @@ public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
                 );
             }
         }
-    }
-
-    private IOrionIrcdService ResolveService(ServiceRegistrationObject serviceRegistrationObject)
-    {
-        var service = _container.Resolve(serviceRegistrationObject.ServiceType);
-
-        return service as IOrionIrcdService ??
-               throw new InvalidOperationException(
-                   $"Registered service '{serviceRegistrationObject.ServiceType.FullName}' does not implement {nameof(IOrionIrcdService)}."
-               );
     }
 }

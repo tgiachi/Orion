@@ -6,7 +6,7 @@ using OrionIrcd.Network.Interfaces.Encryption;
 namespace OrionIrcd.Network.Encryption;
 
 /// <summary>
-///     Implements game transport encryption using Twofish and MD5-derived XOR state.
+/// Implements game transport encryption using Twofish and MD5-derived XOR state.
 /// </summary>
 public sealed class GameEncryption : IClientEncryption
 {
@@ -30,7 +30,7 @@ public sealed class GameEncryption : IClientEncryption
         key[2] = key[6] = key[10] = key[14] = (byte)((seed >> 8) & 0xFF);
         key[3] = key[7] = key[11] = key[15] = (byte)(seed & 0xFF);
 
-        _twofish = new TwofishEngine(key);
+        _twofish = new(key);
         _cipherTable = GC.AllocateUninitializedArray<byte>(CipherTableSize);
         _identityTable.CopyTo(_cipherTable, 0);
         RefreshCipherTable();
@@ -93,7 +93,7 @@ public sealed class GameEncryption : IClientEncryption
             return false;
         }
 
-        encryption = new GameEncryption(seed);
+        encryption = new(seed);
 
         return true;
     }
@@ -116,9 +116,7 @@ public sealed class GameEncryption : IClientEncryption
         Justification = "Ultima Online game encryption uses a legacy MD5-derived XOR stream for protocol compatibility."
     )]
     private static byte[] CreateXorKey(byte[] cipherTable)
-    {
-        return MD5.HashData(cipherTable);
-    }
+        => MD5.HashData(cipherTable);
 
     private void RefreshCipherTable()
     {

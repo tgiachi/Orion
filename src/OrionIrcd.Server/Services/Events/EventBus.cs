@@ -45,21 +45,6 @@ public sealed class EventBus : IEventBus
     public Task StopAsync(CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    private IReadOnlyList<TListener> ResolveListeners<TListener>()
-        => _container.ResolveMany<TListener>(behavior: ResolveManyBehavior.AsFixedArray).ToArray();
-
-    private void DispatchSync<TEvent>(ISyncEventListener<TEvent> listener, TEvent eventData) where TEvent : IEvent
-    {
-        try
-        {
-            listener.Handle(eventData);
-        }
-        catch (Exception exception)
-        {
-            LogListenerException(exception, listener, eventData);
-        }
-    }
-
     private async Task DispatchAsync<TEvent>(
         IAsyncEventListener<TEvent> listener,
         TEvent eventData,
@@ -80,6 +65,18 @@ public sealed class EventBus : IEventBus
         }
     }
 
+    private void DispatchSync<TEvent>(ISyncEventListener<TEvent> listener, TEvent eventData) where TEvent : IEvent
+    {
+        try
+        {
+            listener.Handle(eventData);
+        }
+        catch (Exception exception)
+        {
+            LogListenerException(exception, listener, eventData);
+        }
+    }
+
     private void LogListenerException<TEvent>(Exception exception, object listener, TEvent eventData) where TEvent : IEvent
         => _logger.Error(
             exception,
@@ -87,4 +84,7 @@ public sealed class EventBus : IEventBus
             listener.GetType().FullName,
             eventData.GetType().FullName
         );
+
+    private IReadOnlyList<TListener> ResolveListeners<TListener>()
+        => _container.ResolveMany<TListener>(behavior: ResolveManyBehavior.AsFixedArray).ToArray();
 }

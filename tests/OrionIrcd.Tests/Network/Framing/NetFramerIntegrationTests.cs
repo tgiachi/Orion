@@ -11,23 +11,23 @@ public class NetFramerIntegrationTests
     public async Task ReceiveLoop_WithFramer_EmitsOneEventPerCompleteFrame()
     {
         var framer = new LengthPrefixedFramer();
-        await using var server = new OrionTcpServer(new IPEndPoint(IPAddress.Loopback, 0), framer);
+        await using var server = new OrionTcpServer(new(IPAddress.Loopback, 0), framer);
 
         var received = new List<byte[]>();
         var receivedSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         server.OnDataReceived += (_, args) =>
-        {
-            lock (received)
-            {
-                received.Add(args.Data.ToArray());
+                                 {
+                                     lock (received)
+                                     {
+                                         received.Add(args.Data.ToArray());
 
-                if (received.Count >= 3)
-                {
-                    receivedSignal.TrySetResult(true);
-                }
-            }
-        };
+                                         if (received.Count >= 3)
+                                         {
+                                             receivedSignal.TrySetResult(true);
+                                         }
+                                     }
+                                 };
 
         await server.StartAsync(CancellationToken.None);
 
@@ -57,28 +57,28 @@ public class NetFramerIntegrationTests
     public async Task ReceiveLoop_WithFramer_HoldsPartialTailUntilCompleted()
     {
         var framer = new LengthPrefixedFramer();
-        await using var server = new OrionTcpServer(new IPEndPoint(IPAddress.Loopback, 0), framer);
+        await using var server = new OrionTcpServer(new(IPAddress.Loopback, 0), framer);
 
         var received = new List<byte[]>();
         var firstFrameSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondFrameSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         server.OnDataReceived += (_, args) =>
-        {
-            lock (received)
-            {
-                received.Add(args.Data.ToArray());
+                                 {
+                                     lock (received)
+                                     {
+                                         received.Add(args.Data.ToArray());
 
-                if (received.Count == 1)
-                {
-                    firstFrameSignal.TrySetResult(true);
-                }
-                else if (received.Count == 2)
-                {
-                    secondFrameSignal.TrySetResult(true);
-                }
-            }
-        };
+                                         if (received.Count == 1)
+                                         {
+                                             firstFrameSignal.TrySetResult(true);
+                                         }
+                                         else if (received.Count == 2)
+                                         {
+                                             secondFrameSignal.TrySetResult(true);
+                                         }
+                                     }
+                                 };
 
         await server.StartAsync(CancellationToken.None);
 
@@ -107,16 +107,16 @@ public class NetFramerIntegrationTests
     [Fact]
     public async Task ReceiveLoop_WithoutFramer_EmitsRawChunks()
     {
-        await using var server = new OrionTcpServer(new IPEndPoint(IPAddress.Loopback, 0));
+        await using var server = new OrionTcpServer(new(IPAddress.Loopback, 0));
 
         OrionTcpDataReceivedEventArgs? captured = null;
         var signal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         server.OnDataReceived += (_, args) =>
-        {
-            captured = args;
-            signal.TrySetResult(true);
-        };
+                                 {
+                                     captured = args;
+                                     signal.TrySetResult(true);
+                                 };
 
         await server.StartAsync(CancellationToken.None);
 
