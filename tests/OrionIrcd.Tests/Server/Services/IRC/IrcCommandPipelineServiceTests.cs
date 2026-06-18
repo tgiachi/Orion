@@ -1,3 +1,4 @@
+using System.Text;
 using DryIoc;
 using OrionIrcd.Core.Container;
 using OrionIrcd.Core.Data.Config;
@@ -82,6 +83,42 @@ public class IrcCommandPipelineServiceTests
         var context = Assert.Single(RecordingNickListener.Contexts);
         Assert.Same(session, context.Session);
         Assert.Equal("squid", context.Command.Nickname);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNickAndUser_SendsWelcome()
+    {
+        using var container = new Container();
+        var eventBus = new RecordingEventBus();
+        container.RegisterInstance(
+            new OrionIrcdConfig
+            {
+                ServerName = "orionircd"
+            }
+        );
+        container.RegisterInstance<IEventBus>(eventBus);
+        container.RegisterService<ISessionManagerService, SessionManagerService>(50);
+        container.RegisterBaseIrcCommands();
+        var sessionManager = container.Resolve<ISessionManagerService>();
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        sessionManager.Register(connection);
+        var listener = Assert.Single(
+            container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
+                behavior: ResolveManyBehavior.AsFixedArray
+            )
+        );
+
+        await listener.HandleAsync(new NetworkResultReceivedEvent<string>(connection, "NICK squid"), CancellationToken.None);
+        await listener.HandleAsync(
+            new NetworkResultReceivedEvent<string>(connection, "USER squiduser 0 * :Squid User"),
+            CancellationToken.None
+        );
+
+        Assert.Contains(
+            connection.SentPayloads,
+            payload => Encoding.UTF8.GetString(payload) == ":orionircd 001 squid :Welcome to OrionIRCd squid\r\n"
+        );
+        Assert.Contains(eventBus.Events, eventData => eventData is IrcSessionRegisteredEvent);
     }
 
     private static IrcCommandPipelineService CreateService(IContainer container, ISessionManagerService sessionManager)
