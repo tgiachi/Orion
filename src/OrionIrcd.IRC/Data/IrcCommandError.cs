@@ -6,5 +6,5 @@ public sealed record IrcCommandError
 {
     public IrcCommandErrorType Type { get; init; }
 
-    public string Message { get; init; } = "";
+    public string Message { get; init; } = string.Empty;
 }

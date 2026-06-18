@@ -16,7 +16,7 @@ public sealed class StringProcessor : IResultProcessor<string>
 
         if (data.IsEmpty)
         {
-            return ValueTask.FromResult("");
+            return ValueTask.FromResult(string.Empty);
         }
 
         var command = Encoding.UTF8.GetString(data.Span);

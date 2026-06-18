@@ -214,10 +214,10 @@ public class IrcMessageParser : IIrcMessageParser
         var parts = prefixString.Split('!');
         var nick = parts[0];
 
-        var userHost = parts.Length > 1 ? parts[1] : "";
+        var userHost = parts.Length > 1 ? parts[1] : string.Empty;
         var userHostParts = userHost.Split('@');
-        var user = userHostParts.Length > 0 ? userHostParts[0] : "";
-        var host = userHostParts.Length > 1 ? userHostParts[1] : "";
+        var user = userHostParts.Length > 0 ? userHostParts[0] : string.Empty;
+        var host = userHostParts.Length > 1 ? userHostParts[1] : string.Empty;
 
         return new()
         {
@@ -249,7 +249,7 @@ public class IrcMessageParser : IIrcMessageParser
         var parts = line;
         var tags = new Dictionary<string, string?>(StringComparer.Ordinal);
         var prefix = (IrcMessagePrefix?)null;
-        var command = "";
+        var command = string.Empty;
         var parameters = new List<string>();
         var trailing = (string?)null;
 

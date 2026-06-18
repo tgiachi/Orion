@@ -249,7 +249,7 @@ public sealed class NetworkServerService : IOrionIrcdService
         }
 
         var certificatePath = ResolveCertificatePath(_networkConfigSection.SSLCertFile);
-        var password = _networkConfigSection.SSLCertPassword ?? "";
+        var password = _networkConfigSection.SSLCertPassword ?? string.Empty;
 
         return X509CertificateLoader.LoadPkcs12FromFile(
             certificatePath,

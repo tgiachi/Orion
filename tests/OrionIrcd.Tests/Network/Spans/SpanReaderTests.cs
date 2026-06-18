@@ -241,7 +241,7 @@ public class SpanReaderTests
 
         var read = reader.ReadString(Encoding.ASCII, fixedLength: 0);
 
-        Assert.Equal("", read);
+        Assert.Equal(string.Empty, read);
         Assert.Equal(0, reader.Position);
     }
 

@@ -22,7 +22,7 @@ public static class EnvExtensions
         foreach (DictionaryEntry env in Environment.GetEnvironmentVariables())
         {
             var key = $"${env.Key}";
-            var value = env.Value?.ToString() ?? "";
+            var value = env.Value?.ToString() ?? string.Empty;
             input = input.Replace(key, value);
         }
 

@@ -33,6 +33,6 @@ public static class VersionUtils
             return metadataIndex == -1 ? informationalVersion : informationalVersion[..metadataIndex];
         }
 
-        return assembly.GetName().Version?.ToString() ?? "";
+        return assembly.GetName().Version?.ToString() ?? string.Empty;
     }
 }
