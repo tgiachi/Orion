@@ -7,16 +7,17 @@ namespace OrionIrcd.Server.Services.IRC;
 public sealed class IrcReplyService : IIrcReplyService
 {
     private const string Crlf = "\r\n";
-    private const string DefaultServerName = "orionircd";
 
+    private readonly IIrcServerInfoService _serverInfoService;
     private readonly ISessionManagerService _sessionManagerService;
 
-    public IrcReplyService(ISessionManagerService sessionManagerService)
+    public IrcReplyService(ISessionManagerService sessionManagerService, IIrcServerInfoService serverInfoService)
     {
         _sessionManagerService = sessionManagerService;
+        _serverInfoService = serverInfoService;
     }
 
-    public string ServerName => DefaultServerName;
+    public string ServerName => _serverInfoService.ServerName;
 
     public Task<bool> SendLineAsync(NetworkSession session, string line, CancellationToken cancellationToken)
     {
