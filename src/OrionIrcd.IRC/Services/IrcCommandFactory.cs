@@ -4,7 +4,7 @@ using OrionIrcd.IRC.Message;
 
 namespace OrionIrcd.IRC.Services;
 
-internal sealed class IrcCommandFactory : IIrcCommandFactory
+public sealed class IrcCommandFactory : IIrcCommandFactory
 {
     private readonly IIrcCommandRegistry _registry;
     private readonly IrcCommandBinder _binder;
