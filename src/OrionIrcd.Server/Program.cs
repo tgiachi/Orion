@@ -14,11 +14,13 @@ using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services;
 using OrionIrcd.Server.Services.Events;
 using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Server.Services.Sessions;
 using Serilog;
 
 var container = new Container();
 
 container.RegisterService<IEventBus, EventBus>();
+container.RegisterService<ISessionManagerService, SessionManagerService>(priority: 50);
 container.Register<IResultProcessor<string>, StringProcessor>(Reuse.Singleton);
 container.RegisterService<NetworkServerService, NetworkServerService>(priority: 100);
 
