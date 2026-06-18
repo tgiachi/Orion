@@ -8,14 +8,10 @@ namespace OrionIrcd.IRC.Commands.Base;
 /// This class implements <see cref="IIrcCommand" /> and provides helper methods for:
 /// - Validating command codes against expected IRC command names
 /// - Extracting source information (nick, user, host) from message prefixes
-/// Derived classes should implement:
-/// - <see cref="IIrcCommand.Code" /> property with the specific IRC command code
-/// - <see cref="IIrcCommand.Parse(string)" /> to parse command-specific parameters
-/// - <see cref="IIrcCommand.TryWrite(out string?)" /> to serialize back to IRC format
 /// </summary>
 /// <remarks>
 /// IRC commands are case-insensitive per RFC 2812. This base class provides utilities
-/// for common parsing patterns but allows derived classes to implement command-specific logic.
+/// for common command implementations.
 /// </remarks>
 public abstract class BaseIrcCommand : IIrcCommand
 {
@@ -35,31 +31,6 @@ public abstract class BaseIrcCommand : IIrcCommand
     public IReadOnlyList<string> Params { get; set; } = [];
 
     public string? Trailing { get; set; }
-
-    /// <summary>
-    /// Parses a raw IRC message line into the command's typed properties.
-    /// This method must be implemented by derived classes to handle command-specific parsing.
-    /// </summary>
-    /// <param name="line">Raw IRC message line (with or without source prefix)</param>
-    /// <returns>
-    /// A tuple with Success=true and Error=null on successful parse.
-    /// On failure: Success=false and Error contains the error message.
-    /// </returns>
-    public abstract (bool Success, string? Error) Parse(string line);
-
-    /// <summary>
-    /// Converts this command back to its raw IRC string representation.
-    /// This method must be implemented by derived classes to handle command-specific serialization.
-    /// </summary>
-    /// <param name="output">
-    /// If successful, contains the formatted IRC message (e.g., "PRIVMSG #channel :hello").
-    /// If parsing fails, this is null.
-    /// </param>
-    /// <returns>
-    /// A tuple with Success=true and Error=null on successful serialization.
-    /// On failure: Success=false and Error contains the error message.
-    /// </returns>
-    public abstract (bool Success, string? Error) TryWrite(out string? output);
 
     /// <summary>
     /// Extracts the source (nick!user@host or server name) from an IRC message prefix.

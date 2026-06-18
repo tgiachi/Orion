@@ -22,6 +22,24 @@ public class RawIrcMessage
     public string? Raw { get; init; }
 
     public override string ToString()
-        => Raw ??
-           $"{(Prefix is not null ? $":{Prefix} " : "")}{Command} {string.Join(" ", Params)}{(Trailing is not null ? $" :{Trailing}" : "")}";
+    {
+        if (Raw is not null)
+        {
+            return Raw;
+        }
+
+        var message = Prefix is not null ? $":{Prefix} {Command}" : Command;
+
+        if (Params.Count > 0)
+        {
+            message = $"{message} {string.Join(" ", Params)}";
+        }
+
+        if (Trailing is not null)
+        {
+            message = $"{message} :{Trailing}";
+        }
+
+        return message;
+    }
 }
