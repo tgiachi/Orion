@@ -10,6 +10,7 @@ using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Core.Yaml;
 using OrionIrcd.Network.Interfaces.Processing;
+using OrionIrcd.Server.Extensions.IRC;
 using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services;
 using OrionIrcd.Server.Services.Events;
@@ -21,6 +22,7 @@ var container = new Container();
 
 container.RegisterService<IEventBus, EventBus>();
 container.RegisterService<ISessionManagerService, SessionManagerService>(50);
+container.RegisterBaseIrcCommands();
 container.Register<IResultProcessor<string>, StringProcessor>(Reuse.Singleton);
 container.RegisterService<NetworkServerService, NetworkServerService>(100);
 

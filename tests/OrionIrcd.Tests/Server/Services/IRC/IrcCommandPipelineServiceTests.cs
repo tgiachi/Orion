@@ -1,14 +1,18 @@
 using DryIoc;
 using OrionIrcd.Core.Container;
+using OrionIrcd.Core.Data.Config;
+using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
 using OrionIrcd.IRC.Message;
 using OrionIrcd.IRC.Services;
 using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.Listeners;
+using OrionIrcd.Server.Extensions.IRC;
 using OrionIrcd.Server.Extensions.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
+using OrionIrcd.Server.Services.Events;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.Listeners;
 using OrionIrcd.Server.Services.Sessions;
@@ -19,6 +23,33 @@ namespace OrionIrcd.Tests.Server.Services.IRC;
 
 public class IrcCommandPipelineServiceTests
 {
+    [Fact]
+    public void RegisterBaseIrcCommands_RegistersPipelineAndCommandListeners()
+    {
+        using var container = new Container();
+        container.RegisterInstance(
+            new OrionIrcdConfig
+            {
+                ServerName = "irc.config.net"
+            }
+        );
+        container.RegisterService<IEventBus, EventBus>();
+        container.RegisterService<ISessionManagerService, SessionManagerService>(50);
+
+        container.RegisterBaseIrcCommands();
+
+        Assert.Equal("irc.config.net", container.Resolve<IIrcServerInfoService>().ServerName);
+        Assert.NotNull(container.Resolve<IIrcCommandFactory>());
+        Assert.NotNull(container.Resolve<IIrcReplyService>());
+        Assert.NotNull(container.Resolve<IIrcSessionStateService>());
+        Assert.Equal(6, container.Resolve<List<IrcCommandDispatchRegistration>>().Count);
+        Assert.NotEmpty(
+            container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
+                behavior: ResolveManyBehavior.AsFixedArray
+            )
+        );
+    }
+
     [Fact]
     public async Task HandleAsync_WithInvalidLine_DoesNotDispatch()
     {
