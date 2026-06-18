@@ -9,7 +9,9 @@ public sealed class TestNetworkConnection : INetworkConnection
 
     public EndPoint? RemoteEndPoint { get; init; } = new IPEndPoint(IPAddress.Loopback, 6667);
 
-    public bool IsConnected { get; init; } = true;
+    public bool IsConnected { get; set; } = true;
+
+    public int CloseCallCount { get; private set; }
 
     public List<byte[]> SentPayloads { get; } = [];
 
@@ -22,5 +24,11 @@ public sealed class TestNetworkConnection : INetworkConnection
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CloseCallCount++;
+        IsConnected = false;
+
+        return Task.CompletedTask;
+    }
 }
