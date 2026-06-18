@@ -9,9 +9,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Data.Events;
+using OrionIrcd.Network.Interfaces.Server;
 using Serilog;
 
 namespace OrionIrcd.Network.Server;
@@ -19,7 +21,7 @@ namespace OrionIrcd.Network.Server;
 /// <summary>
 ///     Kestrel-backed WebSocket server with client lifecycle events and raw message dispatch.
 /// </summary>
-public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
+public sealed class OrionWebSocketServer : INetworkServer, IAsyncDisposable, IDisposable
 {
     private static readonly TimeSpan _acceptedSocketCloseTimeout = TimeSpan.FromSeconds(2);
 
@@ -32,6 +34,11 @@ public sealed class OrionWebSocketServer : IAsyncDisposable, IDisposable
     private int _port;
     private int _started;
     private CancellationTokenSource? _shutdownCancellationTokenSource;
+
+    /// <summary>
+    ///     Transport type exposed by this server.
+    /// </summary>
+    public ServerType ServerType => OrionIrcd.Core.Types.ServerType.WebSocket;
 
     /// <summary>
     ///     Current listening port. Returns 0 when the server is stopped.

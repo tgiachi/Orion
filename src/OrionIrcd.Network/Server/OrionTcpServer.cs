@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Interfaces.Framing;
 using OrionIrcd.Network.Interfaces.Middleware;
+using OrionIrcd.Network.Interfaces.Server;
 using Serilog;
 
 namespace OrionIrcd.Network.Server;
@@ -15,7 +17,7 @@ namespace OrionIrcd.Network.Server;
 ///     High-throughput TCP server with client lifecycle events and middleware-enabled payload dispatch.
 ///     Supports Start/Stop/Start cycles by recreating the underlying socket on each Start.
 /// </summary>
-public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
+public sealed class OrionTcpServer : INetworkServer, IAsyncDisposable, IDisposable
 {
     private const int DefaultBacklog = 512;
     private readonly ConcurrentDictionary<long, OrionTcpClient> _clients = new();
@@ -33,6 +35,11 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
     private INetMiddleware[] _middlewares = [];
     private Socket? _serverSocket;
     private int _started;
+
+    /// <summary>
+    ///     Transport type exposed by this server.
+    /// </summary>
+    public ServerType ServerType => OrionIrcd.Core.Types.ServerType.TCP;
 
     /// <summary>
     ///     Current listening port. Returns 0 when the server is stopped.
@@ -241,9 +248,10 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
         try
         {
             await sslStream.AuthenticateAsServerAsync(
-                _tlsOptions.ToAuthenticationOptions(),
-                cancellationToken
-            ).ConfigureAwait(false);
+                               _tlsOptions.ToAuthenticationOptions(),
+                               cancellationToken
+                           )
+                           .ConfigureAwait(false);
 
             return sslStream;
         }
@@ -259,42 +267,42 @@ public sealed class OrionTcpServer : IAsyncDisposable, IDisposable
     private void WireClientEvents(OrionTcpClient client)
     {
         client.OnConnected += (_, args) =>
-        {
-            _logger.Information(
-                "OnClientConnect. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-                args.Client.SessionId,
-                args.Client.RemoteEndPoint
-            );
-            OnClientConnect?.Invoke(this, args);
-        };
+                              {
+                                  _logger.Debug(
+                                      "OnClientConnect. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+                                      args.Client.SessionId,
+                                      args.Client.RemoteEndPoint
+                                  );
+                                  OnClientConnect?.Invoke(this, args);
+                              };
         client.OnDataReceived += (_, args) =>
-        {
-            _logger.Verbose(
-                "OnDataReceived. SessionId={SessionId}, Bytes={Bytes}",
-                args.Client.SessionId,
-                args.Data.Length
-            );
-            OnDataReceived?.Invoke(this, args);
-        };
+                                 {
+                                     _logger.Verbose(
+                                         "OnDataReceived. SessionId={SessionId}, Bytes={Bytes}",
+                                         args.Client.SessionId,
+                                         args.Data.Length
+                                     );
+                                     OnDataReceived?.Invoke(this, args);
+                                 };
         client.OnException += (_, args) =>
-        {
-            _logger.Error(
-                args.Exception,
-                "OnException. SessionId={SessionId}",
-                args.Client?.SessionId
-            );
-            OnException?.Invoke(this, args);
-        };
+                              {
+                                  _logger.Error(
+                                      args.Exception,
+                                      "OnException. SessionId={SessionId}",
+                                      args.Client?.SessionId
+                                  );
+                                  OnException?.Invoke(this, args);
+                              };
         client.OnDisconnected += (_, args) =>
-        {
-            _clients.TryRemove(args.Client.SessionId, out var _);
-            _logger.Information(
-                "OnClientDisconnect. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
-                args.Client.SessionId,
-                args.Client.RemoteEndPoint
-            );
-            OnClientDisconnect?.Invoke(this, args);
-        };
+                                 {
+                                     _clients.TryRemove(args.Client.SessionId, out var _);
+                                     _logger.Debug(
+                                         "OnClientDisconnect. SessionId={SessionId}, RemoteEndPoint={RemoteEndPoint}",
+                                         args.Client.SessionId,
+                                         args.Client.RemoteEndPoint
+                                     );
+                                     OnClientDisconnect?.Invoke(this, args);
+                                 };
     }
 
     /// <inheritdoc />

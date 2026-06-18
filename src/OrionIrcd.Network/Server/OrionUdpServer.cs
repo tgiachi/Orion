@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Network.Data.Events;
+using OrionIrcd.Network.Interfaces.Server;
 using Serilog;
 
 namespace OrionIrcd.Network.Server;
@@ -12,7 +14,7 @@ namespace OrionIrcd.Network.Server;
 ///     UO launcher expects from a shard ping server); supply <see cref="OnDatagram" /> to customise the
 ///     response. Supports Start/Stop/Start cycles by recreating the sockets on each Start.
 /// </summary>
-public sealed class OrionUdpServer : IAsyncDisposable, IDisposable
+public sealed class OrionUdpServer : INetworkServer, IAsyncDisposable, IDisposable
 {
     private readonly bool _bindAllInterfaces;
     private readonly IPEndPoint _endPoint;
@@ -23,6 +25,32 @@ public sealed class OrionUdpServer : IAsyncDisposable, IDisposable
 
     private CancellationTokenSource? _cancellationTokenSource;
     private int _started;
+
+    /// <summary>
+    ///     Transport type exposed by this server.
+    /// </summary>
+    public ServerType ServerType => OrionIrcd.Core.Types.ServerType.UDP;
+
+    /// <summary>
+    ///     Current listening port. Returns 0 when configured for an ephemeral port and stopped.
+    /// </summary>
+    public int Port
+    {
+        get
+        {
+            lock (_sync)
+            {
+                var listener = _listeners.FirstOrDefault();
+
+                if (listener?.Client.LocalEndPoint is IPEndPoint localEndPoint)
+                {
+                    return localEndPoint.Port;
+                }
+
+                return _endPoint.Port;
+            }
+        }
+    }
 
     /// <summary>
     ///     Optional response factory. Receives the datagram payload and the sender endpoint and returns

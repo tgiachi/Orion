@@ -1,12 +1,33 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Server;
 
 namespace OrionIrcd.Tests.Network.Server;
 
 public class OrionUdpServerTests
 {
+    [Fact]
+    public async Task Metadata_ReportsUdpServerTypeAndPort()
+    {
+        await using var server = new OrionUdpServer(new IPEndPoint(IPAddress.Loopback, 0), false);
+
+        Assert.Equal(ServerType.UDP, server.ServerType);
+        Assert.False(server.IsRunning);
+        Assert.Equal(0, server.Port);
+
+        await server.StartAsync(CancellationToken.None);
+
+        Assert.True(server.IsRunning);
+        Assert.True(server.Port > 0);
+
+        await server.StopAsync(CancellationToken.None);
+
+        Assert.False(server.IsRunning);
+        Assert.Equal(0, server.Port);
+    }
+
     [Fact]
     public async Task Receive_DefaultBehaviour_EchoesPayloadBackToSender()
     {

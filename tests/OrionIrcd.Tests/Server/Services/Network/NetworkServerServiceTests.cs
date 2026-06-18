@@ -124,6 +124,41 @@ public class NetworkServerServiceTests
     }
 
     [Fact]
+    public async Task StartAsync_UdpEntry_StartsListenerThroughCommonServerList()
+    {
+        var config = CreateNetworkConfig("0");
+        config.Entries[0].Type = ServerType.UDP;
+        var service = new NetworkServerService(config);
+
+        await service.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.True(service.IsRunning);
+            Assert.Equal(1, service.ListenerCount);
+            Assert.True(service.ListeningPorts.Single() > 0);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_UdpSslEntry_ThrowsAndResetsState()
+    {
+        var config = CreateNetworkConfig("0");
+        config.Entries[0].Type = ServerType.UDP;
+        config.Entries[0].Protocol = ServerProtocolType.SSL;
+        var service = new NetworkServerService(config);
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.StartAsync(CancellationToken.None));
+
+        Assert.False(service.IsRunning);
+        Assert.Equal(0, service.ListenerCount);
+    }
+
+    [Fact]
     public async Task StartAsync_ReceivesIrcLine_PublishesProcessedStringResult()
     {
         var eventBus = new RecordingEventBus();

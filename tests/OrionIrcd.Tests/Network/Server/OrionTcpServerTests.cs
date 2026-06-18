@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Server;
@@ -10,6 +11,16 @@ namespace OrionIrcd.Tests.Network.Server;
 
 public class OrionTcpServerTests
 {
+    [Fact]
+    public void Metadata_ReportsTcpServerType()
+    {
+        using var server = new OrionTcpServer(new IPEndPoint(IPAddress.Loopback, 0));
+
+        Assert.Equal(ServerType.TCP, server.ServerType);
+        Assert.False(server.IsRunning);
+        Assert.Equal(0, server.Port);
+    }
+
     [Fact]
     public async Task Start_AcceptsClient()
     {

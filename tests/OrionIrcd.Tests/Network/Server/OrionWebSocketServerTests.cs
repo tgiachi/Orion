@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
 using System.Reflection;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Client;
 using OrionIrcd.Network.Data.Options;
 using OrionIrcd.Network.Server;
@@ -12,6 +13,16 @@ namespace OrionIrcd.Tests.Network.Server;
 
 public class OrionWebSocketServerTests
 {
+    [Fact]
+    public void Metadata_ReportsWebSocketServerType()
+    {
+        using var server = new OrionWebSocketServer(new IPEndPoint(IPAddress.Loopback, 0));
+
+        Assert.Equal(ServerType.WebSocket, server.ServerType);
+        Assert.False(server.IsRunning);
+        Assert.Equal(0, server.Port);
+    }
+
     [Fact]
     public async Task Start_AcceptsWebSocketClient()
     {
