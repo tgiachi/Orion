@@ -1,4 +1,5 @@
 using OrionIrcd.IRC.Commands.Base;
+using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
@@ -27,9 +28,9 @@ public sealed class QuitCommandListener : IIrcCommandListener<QuitCommand>
                          ? "Client Quit"
                          : context.Command.Reason;
 
-        await _replyService.SendLineAsync(
+        await _replyService.SendReplyAsync(
             context.Session,
-            $"ERROR :Closing Link: {reason}",
+            IrcReplies.ClosingLink(reason),
             cancellationToken
         ).ConfigureAwait(false);
 

@@ -1,6 +1,7 @@
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
@@ -33,11 +34,9 @@ public sealed class NickCommandListener : IIrcCommandListener<NickCommand>
 
         if (string.IsNullOrWhiteSpace(context.Command.Nickname))
         {
-            await _replyService.SendNumericAsync(
+            await _replyService.SendReplyAsync(
                 context.Session,
-                "431",
-                "*",
-                "No nickname given",
+                IrcReplies.NoNicknameGiven(),
                 cancellationToken
             ).ConfigureAwait(false);
 
@@ -46,9 +45,9 @@ public sealed class NickCommandListener : IIrcCommandListener<NickCommand>
 
         if (!_stateService.TrySetNickname(context.Session.SessionId, context.Command.Nickname))
         {
-            await _replyService.SendLineAsync(
+            await _replyService.SendReplyAsync(
                 context.Session,
-                $":{_replyService.ServerName} 433 * {context.Command.Nickname} :Nickname is already in use",
+                IrcReplies.NicknameInUse(context.Command.Nickname),
                 cancellationToken
             ).ConfigureAwait(false);
 
@@ -68,11 +67,9 @@ public sealed class NickCommandListener : IIrcCommandListener<NickCommand>
             return;
         }
 
-        await _replyService.SendNumericAsync(
+        await _replyService.SendReplyAsync(
             context.Session,
-            "001",
-            snapshot.Nickname,
-            $"Welcome to OrionIRCd {snapshot.Nickname}",
+            IrcReplies.Welcome(snapshot.Nickname),
             cancellationToken
         ).ConfigureAwait(false);
 

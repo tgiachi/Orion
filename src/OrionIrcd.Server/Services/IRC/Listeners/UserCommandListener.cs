@@ -1,6 +1,7 @@
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
@@ -33,9 +34,9 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
 
         if (string.IsNullOrWhiteSpace(context.Command.Username))
         {
-            await _replyService.SendLineAsync(
+            await _replyService.SendReplyAsync(
                 context.Session,
-                $":{_replyService.ServerName} 461 * USER :Not enough parameters",
+                IrcReplies.NeedMoreParameters("USER"),
                 cancellationToken
             ).ConfigureAwait(false);
 
@@ -61,11 +62,9 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
             return;
         }
 
-        await _replyService.SendNumericAsync(
+        await _replyService.SendReplyAsync(
             context.Session,
-            "001",
-            snapshot.Nickname,
-            $"Welcome to OrionIRCd {snapshot.Nickname}",
+            IrcReplies.Welcome(snapshot.Nickname),
             cancellationToken
         ).ConfigureAwait(false);
 
