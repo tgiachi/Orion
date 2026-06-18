@@ -2,6 +2,7 @@ using System.Text;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
+using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.IRC.Listeners;
@@ -58,6 +59,81 @@ public class BaseIrcCommandListenerTests
         Assert.Equal("ERROR :Closing Link: Client Quit\r\n", ReadSinglePayload(connection));
         Assert.False(connection.IsConnected);
         Assert.Equal(1, connection.CloseCallCount);
+    }
+
+    [Fact]
+    public async Task NickCommandListener_WithDuplicateNickname_SendsNicknameInUseError()
+    {
+        var context = CreateContext(new NickCommand { Nickname = "squid" }, out var connection);
+        var stateService = new IrcSessionStateService();
+        stateService.TrySetNickname(99, "squid");
+        var listener = new NickCommandListener(
+            stateService,
+            CreateReplyService(context.SessionManager),
+            new RecordingEventBus()
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+
+        Assert.Equal(":orionircd 433 * squid :Nickname is already in use\r\n", ReadSinglePayload(connection));
+    }
+
+    [Fact]
+    public async Task NickCommandListener_WithEmptyNickname_SendsNoNicknameError()
+    {
+        var context = CreateContext(new NickCommand { Nickname = string.Empty }, out var connection);
+        var listener = new NickCommandListener(
+            new IrcSessionStateService(),
+            CreateReplyService(context.SessionManager),
+            new RecordingEventBus()
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+
+        Assert.Equal(":orionircd 431 * :No nickname given\r\n", ReadSinglePayload(connection));
+    }
+
+    [Fact]
+    public async Task UserCommandListener_WhenNickAlreadySet_CompletesRegistrationAndSendsWelcome()
+    {
+        var context = CreateContext(
+            new UserCommand
+            {
+                Username = "squiduser",
+                RealName = "Squid User"
+            },
+            out var connection
+        );
+        var eventBus = new RecordingEventBus();
+        var stateService = new IrcSessionStateService();
+        stateService.TrySetNickname(context.ListenerContext.Session.SessionId, "squid");
+        var listener = new UserCommandListener(
+            stateService,
+            CreateReplyService(context.SessionManager),
+            eventBus
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+        var registeredEvent = await eventBus.WaitForEventAsync<IrcSessionRegisteredEvent>(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid\r\n", ReadSinglePayload(connection));
+        Assert.Equal("squid", registeredEvent.State.Nickname);
+        Assert.Equal("squiduser", registeredEvent.State.Username);
+    }
+
+    [Fact]
+    public async Task UserCommandListener_WithMissingUsername_SendsNeedMoreParams()
+    {
+        var context = CreateContext(new UserCommand(), out var connection);
+        var listener = new UserCommandListener(
+            new IrcSessionStateService(),
+            CreateReplyService(context.SessionManager),
+            new RecordingEventBus()
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+
+        Assert.Equal(":orionircd 461 * USER :Not enough parameters\r\n", ReadSinglePayload(connection));
     }
 
     private static IrcReplyService CreateReplyService(SessionManagerService sessionManagerService)
