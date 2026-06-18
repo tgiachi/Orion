@@ -103,6 +103,14 @@ public class IrcMessageParser : IIrcMessageParser
     }
 
     /// <summary>
+    /// Parses one complete IRC message line with the separator already removed.
+    /// </summary>
+    /// <param name="line">Complete IRC message line.</param>
+    /// <returns>The parsed message, or null when the line is empty or invalid.</returns>
+    public RawIrcMessage? ParseMessage(string line)
+        => ParseSingleMessage(line);
+
+    /// <summary>
     /// Searches for the message separator in a byte span.
     /// This is a low-level utility method that performs a byte-by-byte search for the separator
     /// sequence (typically CRLF, which is 2 bytes: 0x0D 0x0A). The search is case-sensitive and

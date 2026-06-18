@@ -20,4 +20,11 @@ public interface IIrcMessageParser
     /// with subsequent input automatically.
     /// </remarks>
     List<RawIrcMessage> ParseMessages(Span<byte> raw, string separator = "\r\n");
+
+    /// <summary>
+    /// Parses one complete IRC message line with the separator already removed.
+    /// </summary>
+    /// <param name="line">Complete IRC message line.</param>
+    /// <returns>The parsed message, or null when the line is empty or invalid.</returns>
+    RawIrcMessage? ParseMessage(string line);
 }

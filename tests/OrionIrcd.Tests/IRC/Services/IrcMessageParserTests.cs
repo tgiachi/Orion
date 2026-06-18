@@ -110,6 +110,29 @@ public class IrcMessageParserTests
         Assert.Equal("Parser buffer overflow. Message too large.", exception.Message);
     }
 
+    [Fact]
+    public void ParseMessage_WithCompleteLine_ReturnsRawMessage()
+    {
+        var parser = new IrcMessageParser();
+
+        var message = parser.ParseMessage("NICK squid");
+
+        Assert.NotNull(message);
+        Assert.Equal("NICK", message.Command);
+        Assert.Equal("squid", Assert.Single(message.Params));
+        Assert.Equal("NICK squid", message.Raw);
+    }
+
+    [Fact]
+    public void ParseMessage_WithWhitespaceLine_ReturnsNull()
+    {
+        var parser = new IrcMessageParser();
+
+        var message = parser.ParseMessage("   ");
+
+        Assert.Null(message);
+    }
+
     private static byte[] ToBytes(string value)
         => Encoding.UTF8.GetBytes(value);
 }
