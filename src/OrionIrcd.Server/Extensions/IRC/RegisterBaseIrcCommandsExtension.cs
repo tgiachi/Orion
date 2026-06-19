@@ -27,7 +27,9 @@ public static class RegisterBaseIrcCommandsExtension
             container.Register<IIrcMessageParser, IrcMessageParser>(Reuse.Singleton);
             container.Register<IIrcCommandFactory, IrcCommandFactory>(Reuse.Singleton);
             container.Register<IIrcCommandDispatcherService, IrcCommandDispatcherService>(Reuse.Singleton);
+            container.Register<IIrcMotdService, IrcMotdService>(Reuse.Singleton);
             container.Register<IIrcReplyService, IrcReplyService>(Reuse.Singleton);
+            container.Register<IIrcRegistrationService, IrcRegistrationService>(Reuse.Singleton);
 
             var stateService = new IrcSessionStateService();
             container.RegisterInstance<IIrcSessionStateService>(stateService);

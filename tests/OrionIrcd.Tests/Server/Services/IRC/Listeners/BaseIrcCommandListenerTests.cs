@@ -1,5 +1,7 @@
 using System.Text;
 using OrionIrcd.Core.Data.Config;
+using OrionIrcd.Core.Directories;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
@@ -68,12 +70,18 @@ public class BaseIrcCommandListenerTests
         var context = CreateContext(new NickCommand { Nickname = "squid" }, out var connection);
         var stateService = new IrcSessionStateService();
         var config = CreateConfig();
+        var replyService = CreateReplyService(context.SessionManager, config);
+        var registrationService = CreateRegistrationService(
+            context.SessionManager,
+            stateService,
+            replyService,
+            config
+        );
         stateService.TrySetNickname(99, "squid");
         var listener = new NickCommandListener(
             stateService,
-            CreateReplyService(context.SessionManager, config),
-            config,
-            new RecordingEventBus()
+            replyService,
+            registrationService
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
@@ -86,11 +94,12 @@ public class BaseIrcCommandListenerTests
     {
         var context = CreateContext(new NickCommand { Nickname = string.Empty }, out var connection);
         var config = CreateConfig();
+        var stateService = new IrcSessionStateService();
+        var replyService = CreateReplyService(context.SessionManager, config);
         var listener = new NickCommandListener(
-            new IrcSessionStateService(),
-            CreateReplyService(context.SessionManager, config),
-            config,
-            new RecordingEventBus()
+            stateService,
+            replyService,
+            CreateRegistrationService(context.SessionManager, stateService, replyService, config)
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
@@ -112,18 +121,21 @@ public class BaseIrcCommandListenerTests
         var eventBus = new RecordingEventBus();
         var stateService = new IrcSessionStateService();
         var config = CreateConfig();
+        var replyService = CreateReplyService(context.SessionManager, config);
         stateService.TrySetNickname(context.ListenerContext.Session.SessionId, "squid");
         var listener = new UserCommandListener(
             stateService,
-            CreateReplyService(context.SessionManager, config),
-            config,
-            eventBus
+            replyService,
+            CreateRegistrationService(context.SessionManager, stateService, replyService, config, eventBus)
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
         var registeredEvent = await eventBus.WaitForEventAsync<IrcSessionRegisteredEvent>(TimeSpan.FromSeconds(5));
+        var payloads = connection.SentPayloads.Select(Encoding.UTF8.GetString).ToArray();
 
-        Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid\r\n", ReadSinglePayload(connection));
+        Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid\r\n", payloads[0]);
+        Assert.Contains(payloads, payload => payload.StartsWith(":orionircd 005 squid CHANTYPES=# NICKLEN=30", StringComparison.Ordinal));
+        Assert.Contains(payloads, payload => payload == ":orionircd 422 squid :MOTD File is missing\r\n");
         Assert.Equal("squid", registeredEvent.State.Nickname);
         Assert.Equal("squiduser", registeredEvent.State.Username);
     }
@@ -133,11 +145,12 @@ public class BaseIrcCommandListenerTests
     {
         var context = CreateContext(new UserCommand(), out var connection);
         var config = CreateConfig();
+        var stateService = new IrcSessionStateService();
+        var replyService = CreateReplyService(context.SessionManager, config);
         var listener = new UserCommandListener(
-            new IrcSessionStateService(),
-            CreateReplyService(context.SessionManager, config),
-            config,
-            new RecordingEventBus()
+            stateService,
+            replyService,
+            CreateRegistrationService(context.SessionManager, stateService, replyService, config)
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
@@ -152,11 +165,12 @@ public class BaseIrcCommandListenerTests
         var config = CreateConfig();
         config.Pass = HashUtils.HashPassword("server-secret");
         var stateService = new IrcSessionStateService();
+        var replyService = CreateReplyService(context.SessionManager, config);
         var listener = new PassCommandListener(
             stateService,
-            CreateReplyService(context.SessionManager, config),
+            replyService,
             config,
-            new RecordingEventBus()
+            CreateRegistrationService(context.SessionManager, stateService, replyService, config)
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
@@ -172,11 +186,13 @@ public class BaseIrcCommandListenerTests
         var context = CreateContext(new PassCommand { Password = "server-secret" }, out var connection);
         var config = CreateConfig();
         config.Pass = "server-secret";
+        var stateService = new IrcSessionStateService();
+        var replyService = CreateReplyService(context.SessionManager, config);
         var listener = new PassCommandListener(
-            new IrcSessionStateService(),
-            CreateReplyService(context.SessionManager, config),
+            stateService,
+            replyService,
             config,
-            new RecordingEventBus()
+            CreateRegistrationService(context.SessionManager, stateService, replyService, config)
         );
 
         await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
@@ -195,6 +211,29 @@ public class BaseIrcCommandListenerTests
 
     private static OrionIrcdConfig CreateConfig()
         => new() { ServerName = "orionircd" };
+
+    private static IrcRegistrationService CreateRegistrationService(
+        SessionManagerService sessionManagerService,
+        IrcSessionStateService stateService,
+        IrcReplyService replyService,
+        OrionIrcdConfig config,
+        RecordingEventBus? eventBus = null
+    )
+    {
+        var motdService = new IrcMotdService(
+            replyService,
+            config,
+            new DirectoriesConfig(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>())
+        );
+
+        return new(
+            stateService,
+            replyService,
+            motdService,
+            config,
+            eventBus ?? new RecordingEventBus()
+        );
+    }
 
     private static ListenerTestContext<TCommand> CreateContext<TCommand>(
         TCommand command,

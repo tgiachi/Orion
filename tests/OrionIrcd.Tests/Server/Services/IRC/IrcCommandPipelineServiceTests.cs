@@ -2,7 +2,9 @@ using System.Text;
 using DryIoc;
 using OrionIrcd.Core.Container;
 using OrionIrcd.Core.Data.Config;
+using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Interfaces.Events;
+using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
@@ -35,6 +37,7 @@ public class IrcCommandPipelineServiceTests
                 ServerName = "irc.config.net"
             }
         );
+        container.RegisterInstance(CreateDirectoriesConfig());
         container.RegisterService<IEventBus, EventBus>();
         container.RegisterService<ISessionManagerService, SessionManagerService>(50);
 
@@ -97,6 +100,7 @@ public class IrcCommandPipelineServiceTests
                 ServerName = "orionircd"
             }
         );
+        container.RegisterInstance(CreateDirectoriesConfig());
         container.RegisterInstance<IEventBus>(eventBus);
         container.RegisterService<ISessionManagerService, SessionManagerService>(50);
         container.RegisterBaseIrcCommands();
@@ -134,6 +138,7 @@ public class IrcCommandPipelineServiceTests
                 Pass = HashUtils.HashPassword("server-secret")
             }
         );
+        container.RegisterInstance(CreateDirectoriesConfig());
         container.RegisterInstance<IEventBus>(eventBus);
         container.RegisterService<ISessionManagerService, SessionManagerService>(50);
         container.RegisterBaseIrcCommands();
@@ -179,6 +184,9 @@ public class IrcCommandPipelineServiceTests
             sessionManager
         );
     }
+
+    private static DirectoriesConfig CreateDirectoriesConfig()
+        => new(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>());
 
     private sealed class RecordingNickListener : IIrcCommandListener<NickCommand>
     {

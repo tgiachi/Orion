@@ -1,7 +1,4 @@
-using OrionIrcd.Core.Data.Config;
-using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
-using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
@@ -11,22 +8,19 @@ namespace OrionIrcd.Server.Services.IRC.Listeners;
 
 public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
 {
-    private readonly OrionIrcdConfig _config;
-    private readonly IEventBus _eventBus;
+    private readonly IIrcRegistrationService _registrationService;
     private readonly IIrcReplyService _replyService;
     private readonly IIrcSessionStateService _stateService;
 
     public UserCommandListener(
         IIrcSessionStateService stateService,
         IIrcReplyService replyService,
-        OrionIrcdConfig config,
-        IEventBus eventBus
+        IIrcRegistrationService registrationService
     )
     {
         _stateService = stateService;
         _replyService = replyService;
-        _config = config;
-        _eventBus = eventBus;
+        _registrationService = registrationService;
     }
 
     public async ValueTask HandleCommandAsync(
@@ -53,29 +47,6 @@ public sealed class UserCommandListener : IIrcCommandListener<UserCommand>
             context.Command.RealName
         );
 
-        await TryCompleteRegistrationAsync(context, cancellationToken);
+        await _registrationService.TryCompleteRegistrationAsync(context.Session, cancellationToken);
     }
-
-    private async Task TryCompleteRegistrationAsync(
-        IrcCommandListenerContext<UserCommand> context,
-        CancellationToken cancellationToken
-    )
-    {
-        if (!_stateService.TryMarkRegistered(context.Session.SessionId, IsPassRequired(), out var snapshot) ||
-            snapshot is null)
-        {
-            return;
-        }
-
-        await _replyService.SendReplyAsync(
-            context.Session,
-            IrcReplies.Welcome(snapshot.Nickname),
-            cancellationToken
-        );
-
-        await _eventBus.PublishAsync(new IrcSessionRegisteredEvent(context.Session, snapshot), cancellationToken);
-    }
-
-    private bool IsPassRequired()
-        => !string.IsNullOrWhiteSpace(_config.Pass);
 }
