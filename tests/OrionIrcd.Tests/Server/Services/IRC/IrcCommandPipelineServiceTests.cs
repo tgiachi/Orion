@@ -227,9 +227,7 @@ public class IrcCommandPipelineServiceTests
     private static IrcCommandPipelineService CreateService(IContainer container, ISessionManagerService sessionManager)
     {
         var registry = new IrcCommandRegistry();
-        registry.RegisterCommand<NickCommand>(
-            (command, raw) => command.Nickname = raw.Params.Count > 0 ? raw.Params[0] : string.Empty
-        );
+        registry.RegisterCommand<NickCommand>();
         var dispatcher = new IrcCommandDispatcherService(
             container.Resolve<List<IrcCommandDispatchRegistration>>(),
             container
@@ -237,7 +235,7 @@ public class IrcCommandPipelineServiceTests
 
         return new(
             new IrcMessageParser(),
-            new IrcCommandFactory(registry, new(registry)),
+            new IrcCommandFactory(registry, new()),
             dispatcher,
             sessionManager
         );

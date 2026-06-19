@@ -1,18 +1,15 @@
-using OrionIrcd.IRC.Message;
-
 namespace OrionIrcd.IRC.Interfaces;
 
 /// <summary>
-/// Stores explicit IRC command registrations and optional type-specific binders.
+/// Stores explicit IRC command registrations.
 /// </summary>
 public interface IIrcCommandRegistry
 {
     /// <summary>
-    /// Registers a command type and an optional binder for structured raw-message binding.
+    /// Registers a command type.
     /// </summary>
     /// <typeparam name="TCommand">Concrete IRC command type.</typeparam>
-    /// <param name="binder">Optional type-specific binder.</param>
-    void RegisterCommand<TCommand>(Action<TCommand, RawIrcMessage>? binder = null)
+    void RegisterCommand<TCommand>()
         where TCommand : IIrcCommand, new();
 
     /// <summary>
@@ -22,12 +19,4 @@ public interface IIrcCommandRegistry
     /// <param name="command">Created command when found.</param>
     /// <returns><see langword="true" /> when a registered command exists.</returns>
     bool TryCreate(string code, out IIrcCommand? command);
-
-    /// <summary>
-    /// Attempts to get a previously registered type-specific binder.
-    /// </summary>
-    /// <param name="commandType">Concrete command type.</param>
-    /// <param name="binder">Registered binder when found.</param>
-    /// <returns><see langword="true" /> when a binder exists for the type.</returns>
-    bool TryGetBinder(Type commandType, out Action<IIrcCommand, RawIrcMessage>? binder);
 }

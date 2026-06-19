@@ -7,13 +7,6 @@ namespace OrionIrcd.IRC.Services;
 
 public sealed class IrcCommandBinder
 {
-    private readonly IIrcCommandRegistry _registry;
-
-    public IrcCommandBinder(IIrcCommandRegistry registry)
-    {
-        _registry = registry;
-    }
-
     public void Bind(IIrcCommand command, RawIrcMessage rawMessage)
     {
         if (command is BaseIrcCommand baseCommand)
@@ -33,11 +26,6 @@ public sealed class IrcCommandBinder
             notParsed.Params = rawMessage.Params;
             notParsed.Trailing = rawMessage.Trailing;
             notParsed.Message = BuildFallbackMessage(rawMessage);
-        }
-
-        if (_registry.TryGetBinder(command.GetType(), out var binder) && binder is not null)
-        {
-            binder(command, rawMessage);
         }
 
         if (command is IIrcCommandParser parser)

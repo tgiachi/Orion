@@ -116,7 +116,7 @@ public class BaseIrcCommandFactoryTests
         var registry = new IrcCommandRegistry();
         RegisterCommands(registry);
 
-        return new(registry, new(registry));
+        return new(registry, new());
     }
 
     private static void RegisterCommands(IrcCommandRegistry registry)

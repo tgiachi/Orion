@@ -8,11 +8,9 @@ namespace OrionIrcd.Tests.IRC.Services;
 public class IrcCommandBinderTests
 {
     [Fact]
-    public void Bind_WithBaseCommand_CopiesRawFieldsAndInvokesTypedBinder()
+    public void Bind_WithBaseCommand_CopiesRawFieldsAndInvokesCommandParser()
     {
-        var registry = new IrcCommandRegistry();
-        registry.RegisterCommand<TestBaseCommand>((command, raw) => command.BoundTrailing = raw.Trailing);
-        var binder = new IrcCommandBinder(registry);
+        var binder = new IrcCommandBinder();
         var command = new TestBaseCommand();
         var prefix = new IrcMessagePrefix
         {
@@ -44,8 +42,7 @@ public class IrcCommandBinderTests
     [Fact]
     public void Bind_WithNotParsedCommand_CopiesRawFieldsAndUsesRawAsMessage()
     {
-        var registry = new IrcCommandRegistry();
-        var binder = new IrcCommandBinder(registry);
+        var binder = new IrcCommandBinder();
         var command = new NotParsedCommand();
         var rawMessage = new RawIrcMessage
         {

@@ -1,4 +1,3 @@
-using OrionIrcd.IRC.Message;
 using OrionIrcd.IRC.Services;
 using OrionIrcd.Tests.Support.IRC;
 
@@ -40,21 +39,13 @@ public class IrcCommandRegistryTests
     }
 
     [Fact]
-    public void TryGetBinder_WithRegisteredBinder_ReturnsTypedBinder()
+    public void TryCreate_WithUnknownCommand_ReturnsFalse()
     {
         var registry = new IrcCommandRegistry();
-        registry.RegisterCommand<TestIrcCommand>((command, raw) => command.BoundTrailing = raw.Trailing);
-        var command = new TestIrcCommand();
-        var rawMessage = new RawIrcMessage
-        {
-            Command = "TEST",
-            Trailing = "bound"
-        };
 
-        var result = registry.TryGetBinder(typeof(TestIrcCommand), out var binder);
-        binder!(command, rawMessage);
+        var result = registry.TryCreate("UNKNOWN", out var command);
 
-        Assert.True(result);
-        Assert.Equal("bound", command.BoundTrailing);
+        Assert.False(result);
+        Assert.Null(command);
     }
 }
