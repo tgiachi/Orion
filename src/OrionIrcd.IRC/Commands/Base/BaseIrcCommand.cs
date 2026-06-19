@@ -32,6 +32,16 @@ public abstract class BaseIrcCommand : IIrcCommand
 
     public string? Trailing { get; set; }
 
+    protected RawIrcMessage CreateMessage(IReadOnlyList<string>? parameters = null, string? trailing = null)
+        => new()
+        {
+            Prefix = Prefix,
+            Tags = Tags,
+            Command = Code,
+            Params = parameters ?? [],
+            Trailing = trailing
+        };
+
     /// <summary>
     /// Extracts the source (nick!user@host or server name) from an IRC message prefix.
     /// </summary>

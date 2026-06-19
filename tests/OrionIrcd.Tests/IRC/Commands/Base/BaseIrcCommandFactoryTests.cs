@@ -121,37 +121,13 @@ public class BaseIrcCommandFactoryTests
 
     private static void RegisterCommands(IrcCommandRegistry registry)
     {
-        registry.RegisterCommand<CapCommand>(
-            (command, raw) =>
-            {
-                command.Subcommand = raw.Params.Count > 0 ? raw.Params[0] : string.Empty;
-                command.Capabilities = raw.Params.Skip(1).ToArray();
-            }
-        );
-        registry.RegisterCommand<NickCommand>(
-            (command, raw) => command.Nickname = raw.Params.Count > 0 ? raw.Params[0] : string.Empty
-        );
-        registry.RegisterCommand<PingCommand>(
-            (command, raw) => command.Token = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
-        );
-        registry.RegisterCommand<PassCommand>(
-            (command, raw) => command.Password = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
-        );
+        registry.RegisterCommand<CapCommand>();
         registry.RegisterCommand<MotdCommand>();
-        registry.RegisterCommand<PongCommand>(
-            (command, raw) => command.Token = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
-        );
-        registry.RegisterCommand<QuitCommand>(
-            (command, raw) => command.Reason = raw.Trailing ?? string.Empty
-        );
-        registry.RegisterCommand<UserCommand>(
-            (command, raw) =>
-            {
-                command.Username = raw.Params.Count > 0 ? raw.Params[0] : string.Empty;
-                command.Mode = raw.Params.Count > 1 ? raw.Params[1] : string.Empty;
-                command.Unused = raw.Params.Count > 2 ? raw.Params[2] : string.Empty;
-                command.RealName = raw.Trailing ?? string.Empty;
-            }
-        );
+        registry.RegisterCommand<NickCommand>();
+        registry.RegisterCommand<PassCommand>();
+        registry.RegisterCommand<PingCommand>();
+        registry.RegisterCommand<PongCommand>();
+        registry.RegisterCommand<QuitCommand>();
+        registry.RegisterCommand<UserCommand>();
     }
 }

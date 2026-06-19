@@ -39,6 +39,11 @@ public sealed class IrcCommandBinder
         {
             binder(command, rawMessage);
         }
+
+        if (command is IIrcCommandParser parser)
+        {
+            parser.Parse(rawMessage);
+        }
     }
 
     private static string BuildFallbackMessage(RawIrcMessage rawMessage)
