@@ -76,6 +76,70 @@ public class IrcRepliesTests
         Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid", line);
     }
 
+    [Fact]
+    public void YourHost_WithVersion_FormatsNumeric002()
+    {
+        var line = IrcReplies.YourHost("squid", "1.2.3").Format(CreateContext());
+
+        Assert.Equal(":orionircd 002 squid :Your host is orionircd, running version 1.2.3", line);
+    }
+
+    [Fact]
+    public void Created_WithMessage_FormatsNumeric003()
+    {
+        var line = IrcReplies.Created("squid", "This server was created for OrionIRCd").Format(CreateContext());
+
+        Assert.Equal(":orionircd 003 squid :This server was created for OrionIRCd", line);
+    }
+
+    [Fact]
+    public void MyInfo_WithVersion_FormatsNumeric004()
+    {
+        var line = IrcReplies.MyInfo("squid", "1.2.3").Format(CreateContext());
+
+        Assert.Equal(":orionircd 004 squid orionircd OrionIRCd 1.2.3 o o", line);
+    }
+
+    [Fact]
+    public void ISupport_WithDefaults_FormatsNumeric005()
+    {
+        var line = IrcReplies.ISupport("squid").Format(CreateContext());
+
+        Assert.Equal(":orionircd 005 squid CHANTYPES=# NICKLEN=30 :are supported by this server", line);
+    }
+
+    [Fact]
+    public void MotdStart_WithTarget_FormatsNumeric375()
+    {
+        var line = IrcReplies.MotdStart("squid").Format(CreateContext());
+
+        Assert.Equal(":orionircd 375 squid :- orionircd Message of the day -", line);
+    }
+
+    [Fact]
+    public void MotdLine_WithTargetAndLine_FormatsNumeric372()
+    {
+        var line = IrcReplies.MotdLine("squid", "Welcome").Format(CreateContext());
+
+        Assert.Equal(":orionircd 372 squid :- Welcome", line);
+    }
+
+    [Fact]
+    public void EndOfMotd_WithTarget_FormatsNumeric376()
+    {
+        var line = IrcReplies.EndOfMotd("squid").Format(CreateContext());
+
+        Assert.Equal(":orionircd 376 squid :End of /MOTD command.", line);
+    }
+
+    [Fact]
+    public void NoMotd_WithTarget_FormatsNumeric422()
+    {
+        var line = IrcReplies.NoMotd("squid").Format(CreateContext());
+
+        Assert.Equal(":orionircd 422 squid :MOTD File is missing", line);
+    }
+
     private static IrcReplyContext CreateContext()
         => new("orionircd");
 }
