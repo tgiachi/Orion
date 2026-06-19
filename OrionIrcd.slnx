@@ -2,6 +2,7 @@
     <Project Path="src/OrionIrcd.Core/OrionIrcd.Core.csproj"/>
     <Project Path="src/OrionIrcd.IRC/OrionIrcd.IRC.csproj"/>
     <Project Path="src/OrionIrcd.Network/OrionIrcd.Network.csproj"/>
+    <Project Path="src/OrionIrcd.Server.Core/OrionIrcd.Server.Core.csproj"/>
     <Project Path="src/OrionIrcd.Server/OrionIrcd.Server.csproj"/>
     <Project Path="tests/OrionIrcd.Tests/OrionIrcd.Tests.csproj"/>
 </Solution>

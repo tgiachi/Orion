@@ -22,6 +22,7 @@
         <ProjectReference Include="..\..\src\OrionIrcd.Core\OrionIrcd.Core.csproj"/>
         <ProjectReference Include="..\..\src\OrionIrcd.IRC\OrionIrcd.IRC.csproj"/>
         <ProjectReference Include="..\..\src\OrionIrcd.Network\OrionIrcd.Network.csproj"/>
+        <ProjectReference Include="..\..\src\OrionIrcd.Server.Core\OrionIrcd.Server.Core.csproj"/>
         <ProjectReference Include="..\..\src\OrionIrcd.Server\OrionIrcd.Server.csproj"/>
     </ItemGroup>
 
