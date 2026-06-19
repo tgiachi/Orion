@@ -51,6 +51,32 @@ public class BaseIrcCommandListenerTests
     }
 
     [Fact]
+    public async Task MotdCommandListener_WithInlineMotd_SendsMotdForCurrentNickname()
+    {
+        var context = CreateContext(new MotdCommand(), out var connection);
+        var config = CreateConfig();
+        config.MOTD = "Welcome";
+        var stateService = new IrcSessionStateService();
+        stateService.TrySetNickname(context.ListenerContext.Session.SessionId, "squid");
+        var replyService = CreateReplyService(context.SessionManager, config);
+        var listener = new MotdCommandListener(
+            stateService,
+            CreateMotdService(replyService, config)
+        );
+
+        await listener.HandleCommandAsync(context.ListenerContext, CancellationToken.None);
+
+        Assert.Equal(
+            [
+                ":orionircd 375 squid :- orionircd Message of the day -\r\n",
+                ":orionircd 372 squid :- Welcome\r\n",
+                ":orionircd 376 squid :End of /MOTD command.\r\n"
+            ],
+            connection.SentPayloads.Select(Encoding.UTF8.GetString).ToArray()
+        );
+    }
+
+    [Fact]
     public async Task QuitCommandListener_WithReason_SendsErrorAndCloses()
     {
         var context = CreateContext(new QuitCommand { Reason = "Client Quit" }, out var connection);
@@ -220,20 +246,21 @@ public class BaseIrcCommandListenerTests
         RecordingEventBus? eventBus = null
     )
     {
-        var motdService = new IrcMotdService(
-            replyService,
-            config,
-            new DirectoriesConfig(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>())
-        );
-
         return new(
             stateService,
             replyService,
-            motdService,
+            CreateMotdService(replyService, config),
             config,
             eventBus ?? new RecordingEventBus()
         );
     }
+
+    private static IrcMotdService CreateMotdService(IrcReplyService replyService, OrionIrcdConfig config)
+        => new(
+            replyService,
+            config,
+            new DirectoriesConfig(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>())
+        );
 
     private static ListenerTestContext<TCommand> CreateContext<TCommand>(
         TCommand command,

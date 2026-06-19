@@ -76,6 +76,22 @@ public class BaseIrcCommandFactoryTests
     }
 
     [Fact]
+    public void CreateOrFallback_WithMotdMessage_ReturnsMotdCommand()
+    {
+        var factory = CreateFactory();
+        var raw = new RawIrcMessage
+        {
+            Command = "MOTD",
+            Raw = "MOTD"
+        };
+
+        var command = Assert.IsType<MotdCommand>(factory.CreateOrFallback(raw));
+
+        Assert.Equal("MOTD", command.Code);
+        Assert.Equal("MOTD", command.Raw);
+    }
+
+    [Fact]
     public void CreateOrFallback_WithUserMessage_ReturnsBoundUserCommand()
     {
         var factory = CreateFactory();
@@ -121,6 +137,7 @@ public class BaseIrcCommandFactoryTests
         registry.RegisterCommand<PassCommand>(
             (command, raw) => command.Password = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
         );
+        registry.RegisterCommand<MotdCommand>();
         registry.RegisterCommand<PongCommand>(
             (command, raw) => command.Token = raw.Trailing ?? (raw.Params.Count > 0 ? raw.Params[0] : string.Empty)
         );

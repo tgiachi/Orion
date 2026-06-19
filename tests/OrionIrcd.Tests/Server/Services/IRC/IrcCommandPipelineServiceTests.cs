@@ -47,7 +47,7 @@ public class IrcCommandPipelineServiceTests
         Assert.NotNull(container.Resolve<IIrcCommandFactory>());
         Assert.NotNull(container.Resolve<IIrcReplyService>());
         Assert.NotNull(container.Resolve<IIrcSessionStateService>());
-        Assert.Equal(7, container.Resolve<List<IrcCommandDispatchRegistration>>().Count);
+        Assert.Equal(8, container.Resolve<List<IrcCommandDispatchRegistration>>().Count);
         Assert.NotEmpty(
             container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
                 behavior: ResolveManyBehavior.AsFixedArray

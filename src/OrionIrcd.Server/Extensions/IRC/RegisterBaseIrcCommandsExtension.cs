@@ -40,6 +40,7 @@ public static class RegisterBaseIrcCommandsExtension
             );
 
             container.RegisterIrcCommandList<CapCommand, CapCommandListener>();
+            container.RegisterIrcCommandList<MotdCommand, MotdCommandListener>();
             container.RegisterIrcCommandList<NickCommand, NickCommandListener>();
             container.RegisterIrcCommandList<PassCommand, PassCommandListener>();
             container.RegisterIrcCommandList<PingCommand, PingCommandListener>();
@@ -54,6 +55,7 @@ public static class RegisterBaseIrcCommandsExtension
     private static void RegisterCommands(IrcCommandRegistry registry)
     {
         registry.RegisterCommand<CapCommand>(BindCap);
+        registry.RegisterCommand<MotdCommand>();
         registry.RegisterCommand<NickCommand>(BindNick);
         registry.RegisterCommand<PassCommand>(BindPass);
         registry.RegisterCommand<PingCommand>(BindPing);
