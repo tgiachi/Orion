@@ -1,8 +1,8 @@
 using System.Net;
 using OrionIrcd.Network.Interfaces.Client;
-using OrionIrcd.Server.Types;
+using OrionIrcd.Server.Core.Types;
 
-namespace OrionIrcd.Server.Data.Sessions;
+namespace OrionIrcd.Server.Core.Data.Sessions;
 
 public sealed class NetworkSession
 {

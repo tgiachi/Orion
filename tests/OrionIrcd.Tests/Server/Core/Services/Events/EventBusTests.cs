@@ -1,9 +1,9 @@
 using DryIoc;
 using OrionIrcd.Core.Interfaces.Events;
-using OrionIrcd.Server.Services.Events;
+using OrionIrcd.Server.Core.Services.Events;
 using OrionIrcd.Tests.Support.Events;
 
-namespace OrionIrcd.Tests.Server.Services.Events;
+namespace OrionIrcd.Tests.Server.Core.Services.Events;
 
 public class EventBusTests
 {

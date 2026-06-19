@@ -1,6 +1,7 @@
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Interfaces;
-using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using OrionIrcd.Server.Interfaces.Services;
 using Serilog;
 

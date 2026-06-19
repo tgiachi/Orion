@@ -1,4 +1,4 @@
-namespace OrionIrcd.Server.Interfaces.Services;
+namespace OrionIrcd.Server.Core.Interfaces.Services;
 
 public interface IOrionIrcdOrchestrator
 {

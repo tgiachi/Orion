@@ -9,7 +9,7 @@ using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.Listeners;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.IRC.Listeners;
-using OrionIrcd.Server.Services.Sessions;
+using OrionIrcd.Server.Core.Services.Sessions;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Network;
 

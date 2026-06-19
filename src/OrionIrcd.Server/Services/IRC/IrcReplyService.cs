@@ -1,7 +1,8 @@
 using System.Text;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Server.Data.IRC.Replies;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using OrionIrcd.Server.Interfaces.IRC.Replies;
 using OrionIrcd.Server.Interfaces.Services;
 

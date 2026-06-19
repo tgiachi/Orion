@@ -1,6 +1,6 @@
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Server.Data.IRC;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 
 namespace OrionIrcd.Server.Data.Events;
 

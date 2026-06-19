@@ -2,7 +2,7 @@ using System.Text;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Services.IRC;
-using OrionIrcd.Server.Services.Sessions;
+using OrionIrcd.Server.Core.Services.Sessions;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Network;
 

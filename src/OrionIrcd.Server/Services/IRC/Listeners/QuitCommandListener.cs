@@ -1,6 +1,7 @@
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.Server.Data.IRC.Replies;
 using OrionIrcd.Server.Data.Listeners;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
 

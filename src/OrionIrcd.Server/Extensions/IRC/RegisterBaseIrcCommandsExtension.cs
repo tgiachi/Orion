@@ -3,7 +3,7 @@ using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.IRC.Commands.Base;
 using OrionIrcd.IRC.Interfaces;
 using OrionIrcd.IRC.Services;
-using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Core.Data.Events;
 using OrionIrcd.Server.Extensions.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
 using OrionIrcd.Server.Services.IRC;

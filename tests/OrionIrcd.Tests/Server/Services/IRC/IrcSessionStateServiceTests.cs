@@ -1,6 +1,7 @@
 using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.IRC;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Tests.Support.Network;
 

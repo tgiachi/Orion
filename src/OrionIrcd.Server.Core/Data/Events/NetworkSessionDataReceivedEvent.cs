@@ -1,7 +1,7 @@
 using OrionIrcd.Core.Interfaces.Events;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 
-namespace OrionIrcd.Server.Data.Events;
+namespace OrionIrcd.Server.Core.Data.Events;
 
 public sealed class NetworkSessionDataReceivedEvent : IEvent
 {

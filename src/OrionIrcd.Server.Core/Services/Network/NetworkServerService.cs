@@ -13,11 +13,11 @@ using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 using OrionIrcd.Network.Interfaces.Server;
 using OrionIrcd.Network.Server;
-using OrionIrcd.Server.Data.Events;
-using OrionIrcd.Server.Interfaces.Services;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using Serilog;
 
-namespace OrionIrcd.Server.Services.Network;
+namespace OrionIrcd.Server.Core.Services.Network;
 
 public sealed class NetworkServerService : IOrionIrcdService
 {
@@ -162,7 +162,7 @@ public sealed class NetworkServerService : IOrionIrcdService
         {
             yield return new OrionTcpServer(
                 new(ipAddress, port),
-                new IrcLineFramer(),
+                new LineFramer(),
                 tlsOptions: tlsOptions
             );
         }

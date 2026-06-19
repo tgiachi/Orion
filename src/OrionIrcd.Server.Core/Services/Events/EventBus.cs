@@ -2,7 +2,7 @@ using DryIoc;
 using OrionIrcd.Core.Interfaces.Events;
 using Serilog;
 
-namespace OrionIrcd.Server.Services.Events;
+namespace OrionIrcd.Server.Core.Services.Events;
 
 public sealed class EventBus : IEventBus
 {

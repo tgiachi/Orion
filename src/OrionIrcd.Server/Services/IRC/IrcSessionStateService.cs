@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using OrionIrcd.Core.Interfaces.Events;
-using OrionIrcd.Server.Data.Events;
+using OrionIrcd.Server.Core.Data.Events;
 using OrionIrcd.Server.Data.IRC;
 using OrionIrcd.Server.Interfaces.Services;
 

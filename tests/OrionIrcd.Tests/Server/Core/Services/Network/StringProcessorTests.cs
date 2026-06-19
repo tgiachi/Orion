@@ -1,7 +1,7 @@
-using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Server.Core.Services.Network;
 using OrionIrcd.Tests.Support.Network;
 
-namespace OrionIrcd.Tests.Server.Services.Network;
+namespace OrionIrcd.Tests.Server.Core.Services.Network;
 
 public class StringProcessorTests
 {

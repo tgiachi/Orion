@@ -1,13 +1,13 @@
-using OrionIrcd.Server.Services.Network;
+using OrionIrcd.Server.Core.Services.Network;
 
-namespace OrionIrcd.Tests.Server.Services.Network;
+namespace OrionIrcd.Tests.Server.Core.Services.Network;
 
-public class IrcLineFramerTests
+public class LineFramerTests
 {
     [Fact]
     public void TryReadFrame_BufferWithoutLineFeed_ReturnsFalse()
     {
-        var framer = new IrcLineFramer();
+        var framer = new LineFramer();
 
         var result = framer.TryReadFrame("NICK squid"u8, out var frameLength);
 
@@ -18,7 +18,7 @@ public class IrcLineFramerTests
     [Fact]
     public void TryReadFrame_CrlfLine_ReturnsFrameIncludingLineFeed()
     {
-        var framer = new IrcLineFramer();
+        var framer = new LineFramer();
 
         var result = framer.TryReadFrame("NICK squid\r\n"u8, out var frameLength);
 
@@ -29,7 +29,7 @@ public class IrcLineFramerTests
     [Fact]
     public void TryReadFrame_MultipleLines_ReturnsFirstFrameLength()
     {
-        var framer = new IrcLineFramer();
+        var framer = new LineFramer();
 
         var result = framer.TryReadFrame("PING :one\nPING :two\n"u8, out var frameLength);
 

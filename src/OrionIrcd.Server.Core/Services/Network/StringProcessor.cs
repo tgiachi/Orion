@@ -2,7 +2,7 @@ using System.Text;
 using OrionIrcd.Network.Interfaces.Client;
 using OrionIrcd.Network.Interfaces.Processing;
 
-namespace OrionIrcd.Server.Services.Network;
+namespace OrionIrcd.Server.Core.Services.Network;
 
 public sealed class StringProcessor : IResultProcessor<string>
 {

@@ -1,8 +1,8 @@
 using OrionIrcd.Network.Interfaces.Framing;
 
-namespace OrionIrcd.Server.Services.Network;
+namespace OrionIrcd.Server.Core.Services.Network;
 
-public sealed class IrcLineFramer : INetFramer
+public sealed class LineFramer : INetFramer
 {
     public bool TryReadFrame(ReadOnlySpan<byte> buffer, out int frameLength)
     {

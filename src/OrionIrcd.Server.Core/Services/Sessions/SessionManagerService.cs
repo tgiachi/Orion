@@ -1,13 +1,13 @@
 using System.Collections.Concurrent;
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Network.Interfaces.Client;
-using OrionIrcd.Server.Data.Events;
-using OrionIrcd.Server.Data.Sessions;
-using OrionIrcd.Server.Interfaces.Services;
-using OrionIrcd.Server.Types;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Data.Sessions;
+using OrionIrcd.Server.Core.Interfaces.Services;
+using OrionIrcd.Server.Core.Types;
 using Serilog;
 
-namespace OrionIrcd.Server.Services.Sessions;
+namespace OrionIrcd.Server.Core.Services.Sessions;
 
 public sealed class SessionManagerService : ISessionManagerService
 {

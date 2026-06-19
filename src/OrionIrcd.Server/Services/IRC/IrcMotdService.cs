@@ -2,7 +2,7 @@ using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Server.Data.IRC.Replies;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Interfaces.Services;
 
 namespace OrionIrcd.Server.Services.IRC;

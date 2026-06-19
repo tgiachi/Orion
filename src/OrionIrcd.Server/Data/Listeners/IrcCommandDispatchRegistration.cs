@@ -1,6 +1,6 @@
 using DryIoc;
 using OrionIrcd.IRC.Interfaces;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Interfaces.Listeners;
 
 namespace OrionIrcd.Server.Data.Listeners;

@@ -1,9 +1,9 @@
 using DryIoc;
 using OrionIrcd.Core.Data.Internal;
-using OrionIrcd.Server.Services;
+using OrionIrcd.Server.Core.Services;
 using OrionIrcd.Tests.Support.Services;
 
-namespace OrionIrcd.Tests.Server.Services;
+namespace OrionIrcd.Tests.Server.Core.Services;
 
 public class OrionIrcdOrchestratorTests
 {

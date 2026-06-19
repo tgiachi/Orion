@@ -1,11 +1,11 @@
-using OrionIrcd.Server.Data.Events;
-using OrionIrcd.Server.Data.Sessions;
-using OrionIrcd.Server.Services.Sessions;
-using OrionIrcd.Server.Types;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Data.Sessions;
+using OrionIrcd.Server.Core.Services.Sessions;
+using OrionIrcd.Server.Core.Types;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Network;
 
-namespace OrionIrcd.Tests.Server.Services.Sessions;
+namespace OrionIrcd.Tests.Server.Core.Services.Sessions;
 
 public class SessionManagerServiceTests
 {

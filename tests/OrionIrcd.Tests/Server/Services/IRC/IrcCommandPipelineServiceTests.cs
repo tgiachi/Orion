@@ -12,14 +12,16 @@ using OrionIrcd.IRC.Message;
 using OrionIrcd.IRC.Services;
 using OrionIrcd.Server.Data.Events;
 using OrionIrcd.Server.Data.Listeners;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using OrionIrcd.Server.Extensions.IRC;
 using OrionIrcd.Server.Extensions.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Interfaces.Services;
-using OrionIrcd.Server.Services.Events;
+using OrionIrcd.Server.Core.Services.Events;
 using OrionIrcd.Server.Services.IRC;
 using OrionIrcd.Server.Services.Listeners;
-using OrionIrcd.Server.Services.Sessions;
+using OrionIrcd.Server.Core.Services.Sessions;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Network;
 

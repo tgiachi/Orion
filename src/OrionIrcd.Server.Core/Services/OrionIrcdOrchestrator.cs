@@ -1,10 +1,10 @@
 using DryIoc;
 using OrionIrcd.Core.Data.Internal;
 using OrionIrcd.Core.Interfaces.Services;
-using OrionIrcd.Server.Interfaces.Services;
+using OrionIrcd.Server.Core.Interfaces.Services;
 using Serilog;
 
-namespace OrionIrcd.Server.Services;
+namespace OrionIrcd.Server.Core.Services;
 
 public class OrionIrcdOrchestrator : IOrionIrcdOrchestrator
 {

@@ -1,7 +1,7 @@
 using DryIoc;
 using OrionIrcd.IRC.Interfaces;
 using OrionIrcd.Server.Data.Listeners;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Interfaces.Services;
 using Serilog;
 

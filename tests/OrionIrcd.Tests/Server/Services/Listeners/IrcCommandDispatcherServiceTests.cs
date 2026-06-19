@@ -1,7 +1,7 @@
 using DryIoc;
 using OrionIrcd.Core.Container;
 using OrionIrcd.Server.Data.Listeners;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Extensions.Listeners;
 using OrionIrcd.Server.Interfaces.Listeners;
 using OrionIrcd.Server.Services.Listeners;

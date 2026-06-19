@@ -2,9 +2,9 @@ using System.Text;
 using OrionIrcd.Core.Data.Config;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Types;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Services.IRC;
-using OrionIrcd.Server.Services.Sessions;
+using OrionIrcd.Server.Core.Services.Sessions;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Network;
 

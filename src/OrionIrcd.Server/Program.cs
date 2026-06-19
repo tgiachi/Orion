@@ -10,12 +10,12 @@ using OrionIrcd.Core.Types;
 using OrionIrcd.Core.Utils;
 using OrionIrcd.Core.Yaml;
 using OrionIrcd.Network.Interfaces.Processing;
+using OrionIrcd.Server.Core.Interfaces.Services;
+using OrionIrcd.Server.Core.Services;
+using OrionIrcd.Server.Core.Services.Events;
+using OrionIrcd.Server.Core.Services.Network;
+using OrionIrcd.Server.Core.Services.Sessions;
 using OrionIrcd.Server.Extensions.IRC;
-using OrionIrcd.Server.Interfaces.Services;
-using OrionIrcd.Server.Services;
-using OrionIrcd.Server.Services.Events;
-using OrionIrcd.Server.Services.Network;
-using OrionIrcd.Server.Services.Sessions;
 using Serilog;
 
 var container = new Container();

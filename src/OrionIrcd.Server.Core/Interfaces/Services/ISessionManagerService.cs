@@ -1,8 +1,8 @@
 using OrionIrcd.Core.Interfaces.Services;
 using OrionIrcd.Network.Interfaces.Client;
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 
-namespace OrionIrcd.Server.Interfaces.Services;
+namespace OrionIrcd.Server.Core.Interfaces.Services;
 
 /// <summary>
 /// Manages active network sessions and exposes direct session commands.

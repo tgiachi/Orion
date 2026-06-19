@@ -1,4 +1,4 @@
-namespace OrionIrcd.Server.Types;
+namespace OrionIrcd.Server.Core.Types;
 
 public enum NetworkSessionStatusType
 {

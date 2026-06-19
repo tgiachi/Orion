@@ -1,4 +1,4 @@
-using OrionIrcd.Server.Data.Sessions;
+using OrionIrcd.Server.Core.Data.Sessions;
 using OrionIrcd.Server.Interfaces.IRC.Replies;
 
 namespace OrionIrcd.Server.Interfaces.Services;

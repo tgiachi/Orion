@@ -5,15 +5,15 @@ using System.Security.Cryptography.X509Certificates;
 using OrionIrcd.Core.Data.Config.Sections;
 using OrionIrcd.Core.Directories;
 using OrionIrcd.Core.Types;
-using OrionIrcd.Server.Data.Events;
-using OrionIrcd.Server.Services.Network;
-using OrionIrcd.Server.Services.Sessions;
-using OrionIrcd.Server.Types;
+using OrionIrcd.Server.Core.Data.Events;
+using OrionIrcd.Server.Core.Services.Network;
+using OrionIrcd.Server.Core.Services.Sessions;
+using OrionIrcd.Server.Core.Types;
 using OrionIrcd.Tests.Support.Events;
 using OrionIrcd.Tests.Support.Io;
 using OrionIrcd.Tests.Support.Network;
 
-namespace OrionIrcd.Tests.Server.Services.Network;
+namespace OrionIrcd.Tests.Server.Core.Services.Network;
 
 [Collection(NetworkSocketTestCollection.Name)]
 public class NetworkServerServiceTests

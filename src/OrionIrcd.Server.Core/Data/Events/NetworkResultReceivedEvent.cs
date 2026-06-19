@@ -1,7 +1,7 @@
 using OrionIrcd.Core.Interfaces.Events;
 using OrionIrcd.Network.Interfaces.Client;
 
-namespace OrionIrcd.Server.Data.Events;
+namespace OrionIrcd.Server.Core.Data.Events;
 
 public sealed class NetworkResultReceivedEvent<T> : IEvent
 {
