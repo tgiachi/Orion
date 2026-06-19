@@ -15,6 +15,7 @@ public class YamlUtilsTests
                      ServerName: irc.orionircd.net
                      NetworkName: irc.orionircd.net
                      Pass: {{passwordHash}}
+                     MOTD: Welcome to OrionIRCd
                      Logging:
                        LogToConsole: true
                        LogToFile: false
@@ -32,6 +33,7 @@ public class YamlUtilsTests
 
         var entry = Assert.Single(config.Network.Entries);
         Assert.True(HashUtils.VerifyPassword("server-secret", config.Pass));
+        Assert.Equal("Welcome to OrionIRCd", config.MOTD);
         Assert.Equal("*", entry.IpAddress);
         Assert.Equal(ServerType.TCP, entry.Type);
         Assert.Equal(ServerProtocolType.Plain, entry.Protocol);
@@ -43,6 +45,7 @@ public class YamlUtilsTests
     {
         var config = new OrionIrcdConfig();
         config.Pass = HashUtils.HashPassword("server-secret");
+        config.MOTD = "file://motd.txt";
 
         config.Network.Entries.Add(
             new()
@@ -59,6 +62,7 @@ public class YamlUtilsTests
 
         Assert.Contains("ServerName: irc.orionircd.net", yaml);
         Assert.Contains("Pass: pbkdf2-sha256$", yaml);
+        Assert.Contains("MOTD: file://motd.txt", yaml);
         Assert.DoesNotContain("server-secret", yaml);
         Assert.Contains("Network:", yaml);
         Assert.Contains("Entries:", yaml);

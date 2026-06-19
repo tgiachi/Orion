@@ -10,6 +10,8 @@ public class OrionIrcdConfig
 
     public string Pass { get; set; } = string.Empty;
 
+    public string MOTD { get; set; } = string.Empty;
+
     public LoggingSection Logging { get; set; } = new();
 
     public NetworkConfigSection Network { get; set; } = new();
