@@ -97,7 +97,8 @@ public class IrcCommandPipelineServiceTests
         container.RegisterInstance(
             new OrionIrcdConfig
             {
-                ServerName = "orionircd"
+                ServerName = "orionircd",
+                MOTD = "Welcome to Orion"
             }
         );
         container.RegisterInstance(CreateDirectoriesConfig());
@@ -119,10 +120,67 @@ public class IrcCommandPipelineServiceTests
             CancellationToken.None
         );
 
-        Assert.Contains(
-            connection.SentPayloads,
-            payload => Encoding.UTF8.GetString(payload) == ":orionircd 001 squid :Welcome to OrionIRCd squid\r\n"
+        var payloads = connection.SentPayloads.Select(Encoding.UTF8.GetString).ToArray();
+
+        Assert.Equal(8, payloads.Length);
+        Assert.Equal(":orionircd 001 squid :Welcome to OrionIRCd squid\r\n", payloads[0]);
+        Assert.True(
+            payloads[1].StartsWith(
+                ":orionircd 002 squid :Your host is orionircd, running version ",
+                StringComparison.Ordinal
+            ),
+            payloads[1]
         );
+        Assert.Equal(":orionircd 003 squid :This server was created for OrionIRCd\r\n", payloads[2]);
+        Assert.True(
+            payloads[3].StartsWith(":orionircd 004 squid orionircd OrionIRCd ", StringComparison.Ordinal),
+            payloads[3]
+        );
+        Assert.Equal(":orionircd 005 squid CHANTYPES=# NICKLEN=30 :are supported by this server\r\n", payloads[4]);
+        Assert.Equal(":orionircd 375 squid :- orionircd Message of the day -\r\n", payloads[5]);
+        Assert.Equal(":orionircd 372 squid :- Welcome to Orion\r\n", payloads[6]);
+        Assert.Equal(":orionircd 376 squid :End of /MOTD command.\r\n", payloads[7]);
+        Assert.Contains(eventBus.Events, eventData => eventData is IrcSessionRegisteredEvent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithFileMotd_LoadsMOTDFromDataDirectory()
+    {
+        using var tempRoot = new TemporaryDirectory();
+        using var container = new Container();
+        var eventBus = new RecordingEventBus();
+        var directories = CreateDirectoriesConfig(tempRoot.Path);
+        File.WriteAllText(Path.Combine(directories[DirectoryType.Data], "motd.txt"), "From file");
+        container.RegisterInstance(
+            new OrionIrcdConfig
+            {
+                ServerName = "orionircd",
+                MOTD = "file://motd.txt"
+            }
+        );
+        container.RegisterInstance(directories);
+        container.RegisterInstance<IEventBus>(eventBus);
+        container.RegisterService<ISessionManagerService, SessionManagerService>(50);
+        container.RegisterBaseIrcCommands();
+        var sessionManager = container.Resolve<ISessionManagerService>();
+        var connection = new TestNetworkConnection { SessionId = 10 };
+        sessionManager.Register(connection);
+        var listener = Assert.Single(
+            container.ResolveMany<IAsyncEventListener<NetworkResultReceivedEvent<string>>>(
+                behavior: ResolveManyBehavior.AsFixedArray
+            )
+        );
+
+        await listener.HandleAsync(new NetworkResultReceivedEvent<string>(connection, "NICK squid"), CancellationToken.None);
+        await listener.HandleAsync(
+            new NetworkResultReceivedEvent<string>(connection, "USER squiduser 0 * :Squid User"),
+            CancellationToken.None
+        );
+
+        var payloads = connection.SentPayloads.Select(Encoding.UTF8.GetString).ToArray();
+
+        Assert.Contains(":orionircd 372 squid :- From file\r\n", payloads);
+        Assert.DoesNotContain(":orionircd 422 squid :MOTD File is missing\r\n", payloads);
         Assert.Contains(eventBus.Events, eventData => eventData is IrcSessionRegisteredEvent);
     }
 
@@ -185,8 +243,27 @@ public class IrcCommandPipelineServiceTests
         );
     }
 
-    private static DirectoriesConfig CreateDirectoriesConfig()
-        => new(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>());
+    private static DirectoriesConfig CreateDirectoriesConfig(string? root = null)
+        => new(root ?? Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")), Enum.GetNames<DirectoryType>());
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        public TemporaryDirectory()
+        {
+            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public string Path { get; }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+            {
+                Directory.Delete(Path, true);
+            }
+        }
+    }
 
     private sealed class RecordingNickListener : IIrcCommandListener<NickCommand>
     {
