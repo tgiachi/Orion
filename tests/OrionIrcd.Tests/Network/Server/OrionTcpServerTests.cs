@@ -8,6 +8,7 @@ using OrionIrcd.Tests.Support.Network;
 
 namespace OrionIrcd.Tests.Network.Server;
 
+[Collection(NetworkSocketTestCollection.Name)]
 public class OrionTcpServerTests
 {
     [Fact]

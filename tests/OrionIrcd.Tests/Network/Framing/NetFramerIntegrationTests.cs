@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Sockets;
 using OrionIrcd.Network.Data.Events;
 using OrionIrcd.Network.Server;
+using OrionIrcd.Tests.Support.Network;
 
 namespace OrionIrcd.Tests.Network.Framing;
 
+[Collection(NetworkSocketTestCollection.Name)]
 public class NetFramerIntegrationTests
 {
     [Fact]

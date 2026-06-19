@@ -3,9 +3,11 @@ using System.Net.Sockets;
 using System.Text;
 using OrionIrcd.Core.Types;
 using OrionIrcd.Network.Server;
+using OrionIrcd.Tests.Support.Network;
 
 namespace OrionIrcd.Tests.Network.Server;
 
+[Collection(NetworkSocketTestCollection.Name)]
 public class OrionUdpServerTests
 {
     [Fact]

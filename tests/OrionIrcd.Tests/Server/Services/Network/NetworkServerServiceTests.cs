@@ -15,6 +15,7 @@ using OrionIrcd.Tests.Support.Network;
 
 namespace OrionIrcd.Tests.Server.Services.Network;
 
+[Collection(NetworkSocketTestCollection.Name)]
 public class NetworkServerServiceTests
 {
     [Fact]
